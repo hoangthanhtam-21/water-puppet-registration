@@ -42,15 +42,8 @@
             padding: 2rem 1rem;
         }
 
-        /* Lớp phủ tối để tăng độ tương phản của chữ */
-        .overlay {
-            background-color: rgba(0, 0, 0, 0.75);
-            min-height: 100%;
-            width: 100%;
-            padding: 2rem 1rem;
-            box-sizing: border-box;
-        }
-
+        /* Lớp phủ tối đã được loại bỏ để hình nền rõ hơn */
+        
         /* Style for the main title (Đã chỉnh theo yêu cầu: nhỏ hơn, màu đỏ cam, bỏ hiệu ứng mờ) */
         .main-title {
             font-size: clamp(2rem, 5vw, 3rem); /* Giảm kích thước để nằm gọn trong 2 dòng */
@@ -75,192 +68,201 @@
 <body class="font-sans bg-gray-900">
 
     <div class="backdrop-container">
-        <div class="overlay">
+        <!-- Main Registration Container -->
+        <div id="registration-form-container" class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-10 bg-white/75 backdrop-blur-sm rounded-xl shadow-2xl transition-opacity duration-500 ease-in-out">
             
-            <!-- Main Registration Container -->
-            <div id="registration-form-container" class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-10 bg-white/75 backdrop-blur-sm rounded-xl shadow-2xl transition-opacity duration-500 ease-in-out">
-                
-                <!-- === Column 1: Event Details & Header === -->
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="pb-4 border-b border-gray-200 text-center">
-                        <p class="text-gray-500 text-base font-medium uppercase tracking-widest mb-1">Exclusive Show</p>
-                        <h1 class="main-title uppercase text-center">
-                            Water Puppet Show:<br>The Legend of Yết Kiêu
-                        </h1>
-                        <p class="text-xl text-gray-700 mt-2 italic">
-                            The story of one of the five brilliant commanders of King Hưng Đạo Vương.
-                        </p>
-                    </div>
-
-                    <!-- Event Information Card -->
-                    <div class="bg-white/70 border border-gray-200 p-5 rounded-lg shadow-md space-y-3">
-                        <h2 class="text-xl font-bold text-primary-dark flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            Key Details
-                        </h2>
-                        <ul class="text-gray-700 text-base space-y-2">
-                            <li class="flex justify-between items-center border-b pb-1">
-                                <span class="font-semibold text-gray-600">Time:</span>
-                                <span class="font-bold text-red-600">October 18, 2025</span>
-                            </li>
-                            <li class="flex justify-between items-center border-b pb-1">
-                                <span class="font-semibold text-gray-600">Price:</span>
-                                <span class="font-bold text-primary-dark">80,000 VND/ticket</span>
-                            </li>
-                            <li class="pt-2">
-                                <span class="block font-semibold text-gray-600">Location:</span>
-                                <span class="text-base">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- Notes & Deadline Card -->
-                    <div class="bg-accent/10 border-l-4 border-accent p-4 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold text-yellow-800 mb-2 flex items-center">
-                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                            </svg>
-                            Important Notice
-                        </h3>
-                        <ul class="list-disc list-inside space-y-1 text-gray-700 text-base">
-                            <li>Show is <span class="font-bold">exclusively for 10th-grade students</span> of Nguyen Khuyen High School.</li>
-                            <li><span class="font-bold">Deadline:</span> <span class="font-semibold">23:59 on Oct 7, 2025</span> or when <span class="font-semibold">130 seats/session</span> are filled.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- === Column 2 & 3: Registration Form and Status === -->
-                <div class="lg:col-span-2 space-y-6">
-                    
-                    <!-- Session Availability Status - NOW REALTIME -->
-                    <div class="bg-primary-dark/5 p-5 rounded-xl shadow-inner border border-primary-dark/10">
-                        <h2 class="text-2xl font-bold text-primary-dark mb-4">Session Availability Status</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            
-                            <!-- Status Card 1 -->
-                            <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                                <p class="text-base font-semibold text-gray-700">8:00 - 9:00</p>
-                                <div class="mt-2">
-                                    <!-- Data is now loaded via fetchRealtimeStats() -->
-                                    <p id="stats1-registered" class="text-lg font-extrabold text-blue-600">0</p> 
-                                    <p class="text-sm text-gray-500">Registered</p>
-                                </div>
-                                <div class="mt-1 border-t pt-1">
-                                    <p id="stats1-remaining" class="text-lg font-bold text-red-600">130</p>
-                                    <p class="text-sm text-gray-500">Capacity / 130</p>
-                                </div>
-                            </div>
-
-                            <!-- Status Card 2 -->
-                            <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                                <p class="text-base font-semibold text-gray-700">13:00 - 14:00</p>
-                                <div class="mt-2">
-                                    <p id="stats2-registered" class="text-lg font-extrabold text-blue-600">0</p>
-                                    <p class="text-sm text-gray-500">Registered</p>
-                                </div>
-                                <div class="mt-1 border-t pt-1">
-                                    <p id="stats2-remaining" class="text-lg font-bold text-red-600">130</p>
-                                    <p class="text-sm text-gray-500">Capacity / 130</p>
-                                </div>
-                            </div>
-
-                            <!-- Status Card 3 -->
-                            <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                                <p class="text-base font-semibold text-gray-700">16:00 - 17:00</p>
-                                <div class="mt-2">
-                                    <p id="stats3-registered" class="text-lg font-extrabold text-blue-600">0</p>
-                                    <p class="text-sm text-gray-500">Registered</p>
-                                </div>
-                                <div class="mt-1 border-t pt-1">
-                                    <p id="stats3-remaining" class="text-lg font-bold text-red-600">130</p>
-                                    <p class="text-sm text-gray-500">Capacity / 130</p>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    
-                    <!-- Registration Form -->
-                    <form id="registration-form" class="space-y-6 p-6 bg-white/75 rounded-xl shadow-lg border border-gray-100">
-                        <h2 class="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6H12a2 2 0 00-2 2v2.25l-2 2-2 2m0 0l-2 2m2-2l2 2m0 0l-2 2M6 18h12a2 2 0 002-2V8a2 2 0 00-2-2h-3.5L12 8.5 9.5 6H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            Ticket Registration (Max 1)
-                        </h2>
-                        
-                        <div>
-                            <label for="fullName" class="block text-base font-medium text-gray-700 mb-1">Full Name</label>
-                            <input type="text" id="fullName" name="fullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150">
-                        </div>
-
-                        <div>
-                            <label for="class" class="block text-base font-medium text-gray-700 mb-1">Class</label>
-                            <input type="text" id="class" name="class" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150" placeholder="e.g., 10A1, 10B2">
-                        </div>
-
-                        <div class="space-y-3">
-                            <label class="block text-base font-medium text-gray-700">Select Session</label>
-                            
-                            <!-- Session Choices -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <!-- Session 1 -->
-                                <label for="session1" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                    <input type="radio" id="session1" name="session" value="Session 1: 8:00-9:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                    <span class="ml-3 text-base font-medium text-gray-800">8:00 - 9:00</span>
-                                </label>
-
-                                <!-- Session 2 -->
-                                <label for="session2" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                    <input type="radio" id="session2" name="session" value="Session 2: 13:00-14:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                    <span class="ml-3 text-base font-medium text-gray-800">13:00 - 14:00</span>
-                                </label>
-
-                                <!-- Session 3 -->
-                                <label for="session3" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                    <input type="radio" id="session3" name="session" value="Session 3: 16:00-17:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                    <span class="ml-3 text-base font-medium text-gray-800">16:00 - 17:00</span>
-                                </label>
-                            </div>
-                            <!-- Đã di chuyển thông báo lỗi xuống dưới form để dễ nhìn hơn -->
-                            <p id="error-message" class="text-red-500 text-center font-medium p-2 bg-red-100 border border-red-400 rounded-lg hidden">An error occurred. Please try again later.</p>
-                        </div>
-                        
-                        <button type="submit" id="submit-button" class="w-full bg-primary-dark text-white py-3 px-6 rounded-lg font-bold text-xl shadow-xl hover:bg-green-800 transition duration-300 transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                            <span id="submit-text">Confirm Registration</span>
-                            <svg id="loading-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </button>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- Success Message Container -->
-            <div id="success-container" class="hidden max-w-xl mx-auto p-8 md:p-12 bg-white/75 rounded-xl shadow-2xl text-center transition-opacity duration-500 ease-in-out">
-                <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
-                     onerror="this.onerror=null; this.src='https://placehold.co/400x300/34D399/047857?text=Registration+Success!'" 
-                     alt="Joyful celebration image" class="mx-auto w-full max-w-xs h-auto rounded-xl shadow-lg mb-6">
-                
-                <h2 class="text-4xl font-extrabold text-primary-dark mb-3">Congratulations!</h2>
-                <p class="text-3xl text-gray-800 mb-6">Your water puppet show ticket registration has been successful!</p>
-                
-                <div class="bg-primary-dark/10 p-4 rounded-lg inline-block mb-6 border-l-4 border-primary-dark">
-                    <p class="text-lg text-gray-700 font-medium">
-                        Bạn đã đăng ký thành công cho suất diễn:
+            <!-- === Column 1: Event Details & Header === -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="pb-4 border-b border-gray-200 text-center">
+                    <p class="text-gray-500 text-base font-medium uppercase tracking-widest mb-1">Exclusive Show</p>
+                    <h1 class="main-title uppercase text-center">
+                        Water Puppet Show:<br>The Legend of Yết Kiêu
+                    </h1>
+                    <!-- ĐÃ SỬA: Bỏ chữ "King" theo yêu cầu -->
+                    <p class="text-xl text-gray-700 mt-2 italic">
+                        The story of one of the five brilliant commanders of Hưng Đạo Vương.
                     </p>
-                    <p id="successful-session" class="2xl font-bold text-primary-dark mt-2"></p>
                 </div>
 
-                <p class="text-md text-gray-600">
-                    Vui lòng kiểm tra danh sách lớp cuối cùng và chuẩn bị tiền thanh toán (<span class="font-bold">80,000 VND/vé</span>).
-                </p>
+                <!-- Event Information Card -->
+                <div class="bg-white/70 border border-gray-200 p-5 rounded-lg shadow-md space-y-3">
+                    <h2 class="text-xl font-bold text-primary-dark flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Key Details
+                    </h2>
+                    <ul class="text-gray-700 text-base space-y-2">
+                        <!-- ĐÃ SỬA: Đổi "Organizer:" thành "Organizers:" -->
+                        <li class="flex justify-between items-center border-b pb-1">
+                            <span class="font-semibold text-gray-600">Organizers:</span>
+                            <span class="font-bold text-primary-dark text-right">Nguyen Khuyen English Dept. & HCMC Center of Arts</span>
+                        </li>
+                        <li class="flex justify-between items-center border-b pb-1">
+                            <span class="font-semibold text-gray-600">Time:</span>
+                            <span class="font-bold text-red-600">October 18, 2025</span>
+                        </li>
+                        <li class="flex justify-between items-center border-b pb-1">
+                            <span class="font-semibold text-gray-600">Price:</span>
+                            <span class="font-bold text-primary-dark">80,000 VND/ticket</span>
+                        </li>
+                        <li class="pt-2">
+                            <span class="block font-semibold text-gray-600">Location:</span>
+                            <span class="text-base">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Notes & Deadline Card - ĐÃ CẬP NHẬT MÀU SẮC VÀ NỘI DUNG -->
+                <div class="bg-yellow-100 border border-red-500 p-4 rounded-lg shadow-md">
+                    <h3 class="text-xl font-bold text-red-800 mb-2 flex items-center">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        Important Notice
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-gray-700 text-base">
+                        <!-- DÒNG MỚI ĐƯỢC BỔ SUNG -->
+                        <li>Each student can only register for <span class="font-bold">1 ticket</span>.</li>
+                        <li>Show is <span class="font-bold">exclusively for 10th-grade students</span> of Nguyen Khuyen High School.</li>
+                        <li><span class="font-bold">Deadline:</span> <span class="font-semibold">23:59 on Oct 7, 2025</span> or when <span class="font-semibold">130 seats/session</span> are filled.</li>
+                    </ul>
+                </div>
             </div>
-            
+
+            <!-- === Column 2 & 3: Registration Form and Status === -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Session Availability Status - NOW REALTIME -->
+                <div class="bg-primary-dark/5 p-5 rounded-xl shadow-inner border border-primary-dark/10">
+                    <h2 class="text-2xl font-bold text-primary-dark mb-4">Session Availability Status</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        
+                        <!-- Status Card 1 -->
+                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
+                            <p class="text-base font-semibold text-gray-700">8:00 - 9:00</p>
+                            <div class="mt-2">
+                                <!-- Data is now loaded via fetchRealtimeStats() -->
+                                <p id="stats1-registered" class="text-lg font-extrabold text-blue-600">0</p> 
+                                <p class="text-sm text-gray-500">Registered</p>
+                            </div>
+                            <div class="mt-1 border-t pt-1">
+                                <p id="stats1-remaining" class="text-lg font-bold text-red-600">130</p>
+                                <p class="text-sm text-gray-500">Capacity / 130</p>
+                            </div>
+                        </div>
+
+                        <!-- Status Card 2 -->
+                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
+                            <p class="text-base font-semibold text-gray-700">13:00 - 14:00</p>
+                            <div class="mt-2">
+                                <p id="stats2-registered" class="text-lg font-extrabold text-blue-600">0</p>
+                                <p class="text-sm text-gray-500">Registered</p>
+                            </div>
+                            <div class="mt-1 border-t pt-1">
+                                <p id="stats2-remaining" class="text-lg font-bold text-red-600">130</p>
+                                <p class="text-sm text-gray-500">Capacity / 130</p>
+                            </div>
+                        </div>
+
+                        <!-- Status Card 3 -->
+                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
+                            <p class="text-base font-semibold text-gray-700">16:00 - 17:00</p>
+                            <div class="mt-2">
+                                <p id="stats3-registered" class="text-lg font-extrabold text-blue-600">0</p>
+                                <p class="text-sm text-gray-500">Registered</p>
+                            </div>
+                            <div class="mt-1 border-t pt-1">
+                                <p id="stats3-remaining" class="text-lg font-bold text-red-600">130</p>
+                                <p class="text-sm text-gray-500">Capacity / 130</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                
+                <!-- Registration Form -->
+                <form id="registration-form" class="space-y-6 p-6 bg-white/75 rounded-xl shadow-lg border border-gray-100">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6H12a2 2 0 00-2 2v2.25l-2 2-2 2m0 0l-2 2m2-2l2 2m0 0l-2 2M6 18h12a2 2 0 002-2V8a2 2 0 00-2-2h-3.5L12 8.5 9.5 6H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Ticket Registration (Max 1)
+                    </h2>
+                    
+                    <div>
+                        <label for="fullName" class="block text-base font-medium text-gray-700 mb-1">Full Name</label>
+                        <input type="text" id="fullName" name="fullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150">
+                    </div>
+
+                    <div>
+                        <label for="class" class="block text-base font-medium text-gray-700 mb-1">Class</label>
+                        <input type="text" id="class" name="class" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150" placeholder="e.g., 10A1, 10B2">
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="block text-base font-medium text-gray-700">Select Session</label>
+                        
+                        <!-- Session Choices -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <!-- Session 1 -->
+                            <label for="session1" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
+                                <input type="radio" id="session1" name="session" value="Session 1: 8:00-9:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
+                                <span class="ml-3 text-base font-medium text-gray-800">8:00 - 9:00</span>
+                            </label>
+
+                            <!-- Session 2 -->
+                            <label for="session2" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
+                                <input type="radio" id="session2" name="session" value="Session 2: 13:00-14:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
+                                <span class="ml-3 text-base font-medium text-gray-800">13:00 - 14:00</span>
+                            </label>
+
+                            <!-- Session 3 -->
+                            <label for="session3" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
+                                <input type="radio" id="session3" name="session" value="Session 3: 16:00-17:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
+                                <span class="ml-3 text-base font-medium text-gray-800">16:00 - 17:00</span>
+                            </label>
+                        </div>
+                        <!-- Đã di chuyển thông báo lỗi xuống dưới form để dễ nhìn hơn -->
+                        <p id="error-message" class="text-red-500 text-center font-medium p-2 bg-red-100 border border-red-400 rounded-lg hidden">An error occurred. Please try again later.</p>
+                    </div>
+                    
+                    <button type="submit" id="submit-button" class="w-full bg-primary-dark text-white py-3 px-6 rounded-lg font-bold text-xl shadow-xl hover:bg-green-800 transition duration-300 transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                        <span id="submit-text">Confirm Registration</span>
+                        <svg id="loading-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
         </div>
+        
+        <!-- Success Message Container - ĐÃ SỬA: Thay bg-white/75 bằng bg-white để nền đậm hơn -->
+        <div id="success-container" class="hidden max-w-xl mx-auto p-8 md:p-12 bg-white rounded-xl shadow-2xl text-center transition-opacity duration-500 ease-in-out">
+            <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
+                 onerror="this.onerror=null; this.src='https://placehold.co/400x300/34D399/047857?text=Registration+Success!'" 
+                 alt="Joyful celebration image" class="mx-auto w-full max-w-xs h-auto rounded-xl shadow-lg mb-6">
+            
+            <h2 class="text-4xl font-extrabold text-primary-dark mb-3">Congratulations!</h2>
+            <p class="text-3xl text-gray-800 mb-6">Your water puppet show ticket registration has been successful!</p>
+            
+            <!-- Cấu trúc mới hiển thị thông tin chi tiết -->
+            <div class="bg-primary-dark/10 p-4 rounded-lg inline-block mb-6 border-l-4 border-primary-dark text-left w-full max-w-sm mx-auto">
+                <p class="text-lg font-bold text-primary-dark mb-2">Đăng ký thành công cho:</p>
+                <div class="space-y-1">
+                    <p class="text-gray-700"><span class="font-semibold text-gray-800">Họ tên:</span> <span id="successful-name" class="font-bold"></span></p>
+                    <p class="text-gray-700"><span class="font-semibold text-gray-800">Lớp:</span> <span id="successful-class" class="font-bold"></span></p>
+                    <p class="text-gray-700 border-t pt-2 mt-2"><span class="font-semibold text-gray-800">Suất diễn:</span> <span id="successful-session" class="font-bold text-red-600"></span></p>
+                </div>
+            </div>
+
+            <!-- Đã cập nhật nội dung hướng dẫn -->
+            <p class="text-md text-gray-600">
+                Vui lòng đợi thông báo danh sách cuối cùng và chuẩn bị tiền thanh toán (<span class="font-bold">80,000 VND/vé</span>).
+            </p>
+        </div>
+            
     </div>
     
     <script>
@@ -295,9 +297,14 @@
 
         /**
          * Chuyển sang trang thông báo thành công và ngăn quay lại form.
-         * @param {string} sessionName 
+         * @param {string} fullName Tên của học sinh
+         * @param {string} className Lớp của học sinh
+         * @param {string} sessionName Suất diễn đã chọn
          */
-        function showSuccess(sessionName) {
+        function showSuccess(fullName, className, sessionName) {
+            // CẬP NHẬT: Hiển thị Tên, Lớp và Suất diễn
+            document.getElementById('successful-name').textContent = fullName;
+            document.getElementById('successful-class').textContent = className;
             document.getElementById('successful-session').textContent = sessionName;
             
             // Ngăn học sinh dùng nút Back để quay lại form
@@ -456,7 +463,8 @@
 
                 if (!resultText.trim()) {
                     console.log("GAS executed successfully but returned an empty response. Assuming success.");
-                    showSuccess(sessionName);
+                    // CẬP NHẬT: Truyền cả Tên và Lớp vào hàm showSuccess
+                    showSuccess(fullName, className, sessionName); 
                     fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
                     return; 
                 }
@@ -469,7 +477,8 @@
                 }
                 
                 if (result.status === 'success') {
-                    showSuccess(sessionName);
+                    // CẬP NHẬT: Truyền cả Tên và Lớp vào hàm showSuccess
+                    showSuccess(fullName, className, sessionName);
                     fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
                 } else if (result.status === 'error') {
                     // Xử lý lỗi Trùng lặp hoặc Hết ghế từ GAS
