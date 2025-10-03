@@ -44,9 +44,10 @@
 
         /* Lớp phủ tối đã được loại bỏ để hình nền rõ hơn */
         
-        /* Style for the main title (Đã chỉnh theo yêu cầu: nhỏ hơn, màu đỏ cam, bỏ hiệu ứng mờ) */
+        /* Style for the main title */
         .main-title {
-            font-size: clamp(2rem, 5vw, 3rem); /* Giảm kích thước để nằm gọn trong 2 dòng */
+            /* ĐÃ SỬA: Giảm kích thước linh hoạt để đảm bảo nằm gọn trong 2 dòng */
+            font-size: clamp(1.75rem, 4vw, 2.75rem); 
             line-height: 1.1;
             font-weight: 900;
             color: #ea580c; /* Màu Đỏ Cam (Orange 700) */
@@ -78,8 +79,8 @@
                     <h1 class="main-title uppercase text-center">
                         Water Puppet Show:<br>The Legend of Yết Kiêu
                     </h1>
-                    <!-- ĐÃ SỬA: Bỏ chữ "King" theo yêu cầu -->
-                    <p class="text-xl text-gray-700 mt-2 italic">
+                    <!-- ĐÃ SỬA: Giảm kích thước chữ cho phần giới thiệu: text-base trên mobile, text-lg trên màn hình lớn hơn -->
+                    <p class="text-base sm:text-lg text-gray-700 mt-2 italic">
                         The story of one of the five brilliant commanders of Hưng Đạo Vương.
                     </p>
                 </div>
@@ -93,7 +94,6 @@
                         Key Details
                     </h2>
                     <ul class="text-gray-700 text-base space-y-2">
-                        <!-- ĐÃ SỬA: Đổi "Organizer:" thành "Organizers:" -->
                         <li class="flex justify-between items-center border-b pb-1">
                             <span class="font-semibold text-gray-600">Organizers:</span>
                             <span class="font-bold text-primary-dark text-right">Nguyen Khuyen English Dept. & HCMC Center of Arts</span>
@@ -238,7 +238,7 @@
             </div>
         </div>
         
-        <!-- Success Message Container - ĐÃ SỬA: Thay bg-white/75 bằng bg-white để nền đậm hơn -->
+        <!-- Success Message Container - Nền trắng đục -->
         <div id="success-container" class="hidden max-w-xl mx-auto p-8 md:p-12 bg-white rounded-xl shadow-2xl text-center transition-opacity duration-500 ease-in-out">
             <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
                  onerror="this.onerror=null; this.src='https://placehold.co/400x300/34D399/047857?text=Registration+Success!'" 
