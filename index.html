@@ -42,11 +42,9 @@
             padding: 2rem 1rem;
         }
 
-        /* Lớp phủ tối đã được loại bỏ để hình nền rõ hơn */
-        
         /* Style for the main title */
         .main-title {
-            /* ĐÃ SỬA: Giảm kích thước linh hoạt để đảm bảo nằm gọn trong 2 dòng */
+            /* Giảm kích thước linh hoạt để đảm bảo nằm gọn trong 2 dòng */
             font-size: clamp(1.75rem, 4vw, 2.75rem); 
             line-height: 1.1;
             font-weight: 900;
@@ -79,7 +77,6 @@
                     <h1 class="main-title uppercase text-center">
                         Water Puppet Show:<br>The Legend of Yết Kiêu
                     </h1>
-                    <!-- ĐÃ SỬA: Giảm kích thước chữ cho phần giới thiệu: text-base trên mobile, text-lg trên màn hình lớn hơn -->
                     <p class="text-base sm:text-lg text-gray-700 mt-2 italic">
                         The story of one of the five brilliant commanders of Hưng Đạo Vương.
                     </p>
@@ -133,6 +130,15 @@
             <!-- === Column 2 & 3: Registration Form and Status === -->
             <div class="lg:col-span-2 space-y-6">
                 
+                <!-- NEW: Global Registration Status -->
+                <div id="reg-status-box" class="p-4 rounded-xl shadow-md text-center">
+                    <!-- Nội dung sẽ được cập nhật bởi JavaScript -->
+                    <!-- Title và Message sẽ có cỡ chữ LỚN hơn sau khi CSS được cập nhật bên dưới -->
+                    <h2 class="text-xl font-bold" id="reg-status-title">Loading Status...</h2>
+                    <p class="text-sm" id="reg-status-message">Checking current time...</p>
+                </div>
+
+
                 <!-- Session Availability Status - NOW REALTIME -->
                 <div class="bg-primary-dark/5 p-5 rounded-xl shadow-inner border border-primary-dark/10">
                     <h2 class="text-2xl font-bold text-primary-dark mb-4">Session Availability Status</h2>
@@ -267,9 +273,16 @@
     
     <script>
         // *** ĐÃ CẬP NHẬT: Đây là URL Web App mới nhất của Google Apps Script bạn vừa cung cấp ***
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqH7YKHABb1PCoViREOS7I8v1Uj6gCJL712eoNogWfWGwaoojuyA2c_9PBqRKzrYFE/exec"; 
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyVwiyqcGctnIFSKOB5FGsLnL_AyC80n1pECconF4j0Maa4IDYI9HmuCHQZlKWhPJdD/exec"; 
         // ***********************************************************************************
         const STATS_CAPACITY = 130; // Số lượng ghế tối đa cho mỗi suất
+        
+        // --- Cấu hình thời gian đăng ký (Sử dụng giờ Việt Nam) ---
+        // Bắt đầu: 11:30:00 ngày 6 tháng 10 năm 2025 (theo yêu cầu mới)
+        const REGISTRATION_START_DATE = new Date('2025/10/06 11:30:00'); 
+        // Kết thúc: 23:59:59 ngày 7 tháng 10 năm 2025
+        const REGISTRATION_END_DATE = new Date('2025/10/07 23:59:59'); 
+        // -------------------------------------------------------------
 
         const form = document.getElementById('registration-form');
         const submitButton = document.getElementById('submit-button');
@@ -278,6 +291,7 @@
         const errorMessage = document.getElementById('error-message');
         const formContainer = document.getElementById('registration-form-container');
         const successContainer = document.getElementById('success-container');
+        const formInputs = form ? Array.from(form.elements).filter(el => el.type !== 'submit') : [];
 
         /**
          * Ẩn thông báo lỗi.
@@ -317,6 +331,98 @@
                 successContainer.classList.remove('hidden');
                 successContainer.style.opacity = '1';
             }, 500); 
+        }
+        
+        /**
+         * Bật hoặc tắt trạng thái tương tác của form và input.
+         * @param {boolean} enable - True để bật, False để tắt.
+         */
+        function toggleFormInteraction(enable) {
+            if (!submitButton) return;
+
+            // Vô hiệu hóa/Kích hoạt input
+            formInputs.forEach(input => input.disabled = !enable);
+
+            // Xử lý nút Submit
+            if (!enable) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Registration Closed';
+            } else {
+                // Chỉ kích hoạt nút nếu nó không ở trạng thái "Đang xử lý" (Loading)
+                if (loadingSpinner.classList.contains('hidden')) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Confirm Registration';
+                }
+            }
+        }
+        
+        /**
+         * Kiểm tra và cập nhật trạng thái mở/đóng của form dựa trên thời gian.
+         */
+        function checkRegistrationStatus() {
+            const now = new Date();
+            const start = REGISTRATION_START_DATE;
+            const end = REGISTRATION_END_DATE;
+            
+            const statusTitle = document.getElementById('reg-status-title');
+            const statusMessage = document.getElementById('reg-status-message');
+            const statusBox = document.getElementById('reg-status-box');
+            
+            // Kiểm tra trạng thái
+            if (now < start) {
+                // Form chưa mở
+                toggleFormInteraction(false);
+                const timeRemaining = formatTimeRemaining(start.getTime() - now.getTime());
+                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-blue-100 border border-blue-400';
+                
+                // CẬP NHẬT KÍCH THƯỚC CHỮ: text-3xl và text-xl
+                statusTitle.className = 'text-3xl font-extrabold text-blue-800'; 
+                statusMessage.className = 'text-xl text-blue-700';
+
+                statusTitle.textContent = 'REGISTRATION IS NOT OPEN YET';
+                statusMessage.innerHTML = `Form will open on <span class="font-bold">${start.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${start.toLocaleDateString('vi-VN')}</span>. Remaining: <span class="font-bold">${timeRemaining}</span>`;
+            
+            } else if (now > end) {
+                // Form đã đóng
+                toggleFormInteraction(false);
+                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-red-100 border border-red-400';
+                
+                // CẬP NHẬT KÍCH THƯỚC CHỮ: text-3xl và text-xl
+                statusTitle.className = 'text-3xl font-extrabold text-red-800';
+                statusMessage.className = 'text-xl text-red-700';
+
+                statusTitle.textContent = 'REGISTRATION IS CLOSED';
+                statusMessage.textContent = 'The registration period ended on ' + end.toLocaleDateString('vi-VN');
+
+            } else {
+                // Form đang mở
+                toggleFormInteraction(true);
+                const timeRemaining = formatTimeRemaining(end.getTime() - now.getTime());
+                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-green-100 border border-green-400';
+                
+                // CẬP NHẬT KÍCH THƯỚC CHỮ: text-3xl và text-xl
+                statusTitle.className = 'text-3xl font-extrabold text-green-800';
+                statusMessage.className = 'text-xl text-green-700';
+
+                statusTitle.textContent = 'REGISTRATION IS OPEN NOW!';
+                statusMessage.innerHTML = `Deadline remaining: <span class="font-bold">${timeRemaining}</span>`;
+            }
+        }
+
+        /**
+         * Định dạng thời gian còn lại (milliseconds) thành chuỗi dễ đọc.
+         */
+        function formatTimeRemaining(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const days = Math.floor(totalSeconds / (3600 * 24));
+            const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (days > 0) return `${days} days, ${hours} hours`;
+            if (hours > 0) return `${hours} hours, ${minutes} minutes`;
+            if (minutes > 0) return `${minutes} minutes, ${seconds} seconds`;
+            return `${seconds} seconds`;
         }
 
         /**
@@ -414,6 +520,13 @@
         async function handleSubmit(e) {
             e.preventDefault();
             hideError();
+            
+            // Kiếm tra Client-side: Ngăn chặn gửi nếu form không mở
+            // CHÚ Ý: CHECK NÀY CHỈ LÀ THỨ CẤP. CHECK SERVER MỚI LÀ BẢO MẬT
+            if (submitButton.disabled) {
+                showError("Đăng ký chưa mở. Vui lòng đợi đến đúng 11:30 ngày 06/10.");
+                return;
+            }
 
             submitButton.disabled = true;
             submitText.textContent = 'Đang xử lý...';
@@ -463,7 +576,6 @@
 
                 if (!resultText.trim()) {
                     console.log("GAS executed successfully but returned an empty response. Assuming success.");
-                    // CẬP NHẬT: Truyền cả Tên và Lớp vào hàm showSuccess
                     showSuccess(fullName, className, sessionName); 
                     fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
                     return; 
@@ -477,11 +589,10 @@
                 }
                 
                 if (result.status === 'success') {
-                    // CẬP NHẬT: Truyền cả Tên và Lớp vào hàm showSuccess
                     showSuccess(fullName, className, sessionName);
                     fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
                 } else if (result.status === 'error') {
-                    // Xử lý lỗi Trùng lặp hoặc Hết ghế từ GAS
+                    // Xử lý lỗi Trùng lặp, Hết ghế HOẶC LỖI THỜI GIAN từ GAS
                     showError(result.message || "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.");
                 } else {
                     showError("Lỗi phản hồi không xác định từ máy chủ Google.");
@@ -503,8 +614,8 @@
         }
 
         function resetButton() {
-            submitButton.disabled = false;
-            submitText.textContent = 'Confirm Registration';
+            // Chỉ reset nút nếu form đang mở. Nếu form bị đóng bởi thời gian, không reset.
+            checkRegistrationStatus(); 
             loadingSpinner.classList.add('hidden');
         }
 
@@ -513,12 +624,15 @@
             form.addEventListener('submit', handleSubmit);
         }
 
-        // 1. Tải thống kê khi trang vừa mở
+        // 1. Tải thống kê và kiểm tra trạng thái khi trang vừa mở
         document.addEventListener('DOMContentLoaded', () => {
             fetchRealtimeStats();
+            checkRegistrationStatus();
             
             // 2. Cài đặt fetch định kỳ (mỗi 30 giây) để cập nhật thời gian thực
             setInterval(fetchRealtimeStats, 30000); 
+            // 3. Cài đặt kiểm tra trạng thái định kỳ (mỗi giây) để cập nhật chính xác thời gian mở/đóng
+            setInterval(checkRegistrationStatus, 1000); 
         });
 
     </script>
