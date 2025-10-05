@@ -129,7 +129,7 @@
                 Water Puppet Show: <br><span class="text-emerald-600">Legend of Yết Kiêu</span>
             </h1>
             <p class="text-sm text-center text-gray-600 mb-6 italic">
-                The story of one of Hưng Đạo Vương's five most talented generals.
+                The story about one of Hưng Đạo Vương's five most talented generals.
             </p>
             
             <!-- Event Details -->
@@ -241,6 +241,7 @@
         const MAX_RETRIES = 3;
         
         // --- CẤU HÌNH QUAN TRỌNG: Đang ở chế độ chạy THẬT. ---
+        // Form sẽ chỉ mở khi đủ điều kiện thời gian và số lượng.
         const IS_MOCKING_STATUS = false; 
         
         // --- MOCK CONFIGURATION (CHỈ DÙNG KHI IS_MOCKING_STATUS = TRUE) ---
@@ -434,7 +435,7 @@
             let result;
 
             if (IS_MOCKING_STATUS) {
-                // --- MOCK LOGIC: (DISABLED) ---
+                // --- MOCK LOGIC (DISABLED) ---
                 const currentTime = new Date().getTime();
                 let formStatus;
 
@@ -446,11 +447,10 @@
                     formStatus = 'CLOSED';
                 }
                 
-                // Giả lập dữ liệu thống kê (để kiểm tra trạng thái đầy/chưa đầy)
                 const stats = [
-                    { session: 'Session 1', registered: 120 }, // Gần đầy
-                    { session: 'Session 2', registered: 50 },  // Vẫn còn nhiều
-                    { session: 'Session 3', registered: 130 }  // Đã đầy (FULL)
+                    { session: 'Session 1', registered: 120 }, 
+                    { session: 'Session 2', registered: 50 },  
+                    { session: 'Session 3', registered: 130 }  
                 ];
 
                 result = {
@@ -461,7 +461,6 @@
                     closeTime: MOCK_CLOSE_TIME
                 };
                 
-                // Giả lập độ trễ mạng
                 await new Promise(resolve => setTimeout(resolve, 500)); 
                 // --- END MOCK LOGIC ---
 
