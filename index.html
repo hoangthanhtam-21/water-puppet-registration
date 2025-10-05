@@ -7,7 +7,7 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Inter Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=100..900&display=swap" rel="stylesheet">
     <!-- Load Firebase/Firestore -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -16,8 +16,44 @@
 
         // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // =======================================================================
+        //  CẤU HÌNH FIREBASE KHI CHẠY TRÊN GITHUB HOẶC MÁY CỤC BỘ (LOCAL MODE)
+        //  Nếu bạn muốn bật chức năng đếm vé và kiểm tra trùng lặp, bạn phải thay
+        //  thế các giá trị PLACEHOLDER_FIREBASE_CONFIG dưới đây bằng cấu hình 
+        //  dự án Firebase của bạn.
+        // =======================================================================
+        const PLACEHOLDER_FIREBASE_CONFIG = {
+            apiKey: "YOUR_API_KEY_HERE_FROM_FIREBASE", 
+            authDomain: "your-project-id.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project-id.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        let firebaseConfig = PLACEHOLDER_FIREBASE_CONFIG;
+        let USE_FIREBASE = false;
+
+        // Ưu tiên cấu hình từ môi trường Immersive nếu có
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+             try {
+                const envConfig = JSON.parse(__firebase_config);
+                if (Object.keys(envConfig).length > 0) {
+                    firebaseConfig = envConfig;
+                    USE_FIREBASE = true;
+                }
+             } catch (e) {
+                console.error("Failed to parse __firebase_config, using placeholder:", e);
+             }
+        }
+        
+        // Kiểm tra xem cấu hình tạm thời có bị để nguyên không
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE_FROM_FIREBASE") {
+            USE_FIREBASE = true;
+        }
+
 
         let app, db, auth;
         let currentUserId = null;
@@ -25,10 +61,21 @@
 
         // Set up Firebase and Auth Listener
         window.initFirebase = async () => {
+            if (!USE_FIREBASE) {
+                console.warn("Firebase config missing. Running in local mode without real-time counting/duplicate checks. Only Google Sheet logging will be attempted.");
+                window.setupListeners(crypto.randomUUID()); // Load UI anyway
+                // Update loading message to reflect local mode
+                document.getElementById('loading-message').innerHTML = 'Đang chạy ở **Chế độ Ngoại tuyến** (Không có đếm vé thời gian thực). Đang kiểm tra giới hạn thời gian...';
+                document.getElementById('overload-tip').classList.remove('hidden');
+                document.getElementById('overload-tip').innerHTML = '⚠️ **Chế độ Ngoại tuyến:** Chức năng đếm vé và kiểm tra trùng lặp sẽ bị **tắt** vì thiếu cấu hình Firebase. Tuy nhiên, dữ liệu vẫn sẽ được cố gắng ghi vào Google Sheet.';
+                return;
+            }
+            
             try {
                 // Set Firestore log level to Debug for visibility
                 setLogLevel('Debug');
                 
+                // Khởi tạo Firebase với cấu hình đã chọn
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -61,7 +108,10 @@
                 });
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                document.getElementById('loading-message').textContent = 'Error initializing system. Check console for details.';
+                // Thay đổi thông báo lỗi để chỉ rõ rằng đó là lỗi cấu hình
+                document.getElementById('loading-message').textContent = 'Error: Firebase configuration is missing or invalid. Check the config variables in the code.';
+                document.getElementById('overload-tip').classList.remove('hidden'); // Dùng luôn tip này để hướng dẫn
+                document.getElementById('overload-tip').innerHTML = '⚠️ **Lỗi Cấu hình:** Khi chạy trên GitHub/Local, bạn **PHẢI** tự điền `PLACEHOLDER_FIREBASE_CONFIG` bằng cấu hình Firebase của riêng bạn. Nếu không, ứng dụng sẽ không thể kết nối.';
             }
         };
 
@@ -72,7 +122,7 @@
                     return await operation();
                 } catch (error) {
                     // 7 = 'PERMISSION_DENIED', 8 = 'RESOURCE_EXHAUSTED' (for rate limiting)
-                    if (error.code && (error.code === 'permission-denied' || error.code === 'resource-exhausted')) {
+                    if (error.code && (error.code === 'permission-denied' || error.code === 'resource-exceeded')) {
                         console.warn(`Firestore operation failed (attempt ${i + 1}/${maxRetries}): ${error.message}. Retrying in ${delay / 1000}s...`);
                         if (i < maxRetries - 1) {
                             await new Promise(resolve => setTimeout(resolve, delay));
@@ -284,8 +334,10 @@
     </div>
 
     <script type="module">
-        // Import necessary components from the global scope set up in the first script tag
-        const { db, retryWithBackoff, collection, query, where, getDocs, addDoc, onSnapshot } = window; 
+        // Refactor: Get all dependencies, including mocked ones if USE_FIREBASE is false
+        // We will define them globally in the first script block, so we use window.db etc.
+        const db = window.db; 
+        const { retryWithBackoff, collection, query, where, getDocs, addDoc, onSnapshot } = window; 
         
         // ** ĐƯỜNG DẪN WEB APP APPS SCRIPT ĐÃ TRIỂN KHAI CỦA BẠN **
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMgRd7aZSteqXhd0FT57ABEIcdBqlNNcv68FFEB6Ii_6FF6IQMTI9ScOJ2FGk8yyeN/exec';
@@ -321,6 +373,8 @@
         const duplicateError = document.getElementById('duplicate-error');
         const generalError = document.getElementById('general-error');
         const userIdDisplay = document.getElementById('user-id-display');
+        
+        const IS_LOCAL_MODE = !db; // Cờ để kiểm tra chế độ chạy
 
         // --- Utility Functions ---
 
@@ -337,7 +391,6 @@
             if (name.trim().length < 3) return false;
 
             // Regex to check for non-stop repeating characters (e.g., 'aaaaa', '11111') or keyboard-walks (e.g., 'asdfghjkl')
-            // This is a simple defense. Real-world validation would be more complex.
             const repeatedChars = /(.)\1{3,}/i; // 4 or more of the same char
             const keyboardWalk = /(asdf|qwerty|zxcv|dfgh|hjkl|jkl;)/i; // common bad patterns
 
@@ -362,21 +415,22 @@
             nameError.classList.toggle('hidden', isNameValid || fullNameInput.value.length === 0);
             classError.classList.toggle('hidden', isClassValid || classInput.value.length === 0);
 
-            submitButton.disabled = !(isFormOpen && isNameValid && isClassValid && isSessionSelected);
+            let isDisabled = !(isFormOpen && isNameValid && isClassValid && isSessionSelected);
             
-            // Check for capacity limit
-            if (isSessionSelected) {
+            // Check for capacity limit (ONLY in real mode)
+            if (!IS_LOCAL_MODE && isSessionSelected) {
                 const sessionKey = SESSION_MAP[isSessionSelected.value];
                 if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
                     submitButton.textContent = `Session ${sessionKey.slice(-1)} is FULL`;
-                    submitButton.disabled = true;
+                    isDisabled = true;
                 } else {
                     submitButton.textContent = 'Register Ticket';
-                    submitButton.disabled = !(isFormOpen && isNameValid && isClassValid);
                 }
-            } else {
-                submitButton.textContent = 'Register Ticket';
+            } else if (IS_LOCAL_MODE) {
+                submitButton.textContent = 'Register Ticket (Local Mode)';
             }
+
+            submitButton.disabled = isDisabled;
         };
 
         fullNameInput.addEventListener('input', checkFormState);
@@ -390,11 +444,13 @@
             const now = new Date();
             const timeDiffOpen = OPENING_TIME.getTime() - now.getTime();
             const timeDiffClose = CLOSING_TIME.getTime() - now.getTime();
+            
+            let messagePrefix = IS_LOCAL_MODE ? 'Local Mode: ' : '';
 
             if (timeDiffOpen > 0) {
                 // Form is not yet open
                 isFormOpen = false;
-                loadingMessage.innerHTML = `Registration opens on <b>${OPENING_TIME.toLocaleString('en-US')}</b>. Please wait.`;
+                loadingMessage.innerHTML = messagePrefix + `Đăng ký mở vào lúc <b>${OPENING_TIME.toLocaleString('en-US')}</b>. Vui lòng chờ.`;
                 submitButton.textContent = 'Registration Not Yet Open';
                 submitButton.disabled = true;
 
@@ -403,7 +459,7 @@
             } else if (timeDiffClose < 0) {
                 // Form is closed
                 isFormOpen = false;
-                loadingMessage.innerHTML = `Registration is <b>CLOSED</b> since ${CLOSING_TIME.toLocaleString('en-US')}.`;
+                loadingMessage.innerHTML = messagePrefix + `Đăng ký đã **ĐÓNG** từ ${CLOSING_TIME.toLocaleString('en-US')}.`;
                 submitButton.textContent = 'Registration Closed';
                 submitButton.disabled = true;
             } else {
@@ -418,25 +474,38 @@
         };
 
 
-        // --- Firestore Setup and Handlers ---
+        // --- Firebase Setup and Handlers ---
 
         window.setupListeners = (userId) => {
             userIdDisplay.textContent = userId;
             
-            if (!db) {
-                loadingMessage.textContent = 'Database connection failed.';
-                return;
+            // 1. Start the time check loop after auth is ready
+            checkTimeAndToggleUI();
+
+            // 2. Set up real-time listener for ticket counts OR mock it
+            if (IS_LOCAL_MODE) {
+                // --- MOCK FIREBASE LOGIC for Local/GitHub RUN ---
+                console.warn("MOCK MODE ACTIVE: Simulating unlimited capacity.");
+                
+                // Cập nhật giao diện để hiển thị chế độ ngoại tuyến
+                document.getElementById('count-1').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
+                document.getElementById('count-2').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
+                document.getElementById('count-3').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
+                
+                // Đảm bảo không có radio nào bị disable
+                document.querySelectorAll('input[name="session"]').forEach(radio => radio.disabled = false);
+
+                checkFormState();
+                return; 
             }
 
-            // Collection path for public data: /artifacts/{appId}/public/data/water_puppet_registrations
+            // --- REAL FIREBASE LOGIC (Only runs if config is valid) ---
+            if (!db) return;
+
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
             const registrationsCollection = collection(db, collectionPath);
             
-            // 1. Start the time check loop after auth is ready
-            checkTimeAndToggleUI();
-
-            // 2. Set up real-time listener for ticket counts
             onSnapshot(registrationsCollection, (snapshot) => {
                 const currentCounts = { 'Session 1': 0, 'Session 2': 0, 'Session 3': 0 };
                 snapshot.forEach(doc => {
@@ -497,9 +566,7 @@
                 });
                 
                 // Lưu ý: Do sử dụng 'no-cors', chúng ta không thể đọc body JSON trả về.
-                // Chúng ta chỉ có thể kiểm tra xem fetch có bị lỗi mạng không.
                 if (!response.ok && response.type !== 'opaque') {
-                     // Nếu có lỗi HTTP (không phải lỗi network/no-cors), chúng ta vẫn in ra warning
                      console.warn(`Warning: Could not confirm Google Sheet log status. HTTP Status: ${response.status}`);
                 }
                 
@@ -545,48 +612,70 @@
             const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
             
             try {
-                // 1. CHECK FOR DUPLICATE (Name + Class)
-                const checkDuplicateOperation = async () => {
-                    const q = query(
-                        collection(db, collectionPath),
-                        where("formattedName", "==", formattedName),
-                        where("formattedClass", "==", formattedClass)
-                    );
-                    const querySnapshot = await getDocs(q);
-                    return querySnapshot.empty; // Returns true if no duplicate found
-                };
+                if (!IS_LOCAL_MODE) {
+                    // --- REAL FIREBASE LOGIC ---
+                    // 1. CHECK FOR DUPLICATE (Name + Class)
+                    const checkDuplicateOperation = async () => {
+                        const q = query(
+                            collection(db, collectionPath),
+                            where("formattedName", "==", formattedName),
+                            where("formattedClass", "==", formattedClass)
+                        );
+                        const querySnapshot = await getDocs(q);
+                        return querySnapshot.empty; // Returns true if no duplicate found
+                    };
 
-                const isUnique = await retryWithBackoff(checkDuplicateOperation);
+                    const isUnique = await retryWithBackoff(checkDuplicateOperation);
 
-                if (!isUnique) {
-                    duplicateError.classList.remove('hidden');
-                    return;
+                    if (!isUnique) {
+                        duplicateError.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // 2. CHECK CAPACITY AGAIN 
+                    if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
+                        generalError.textContent = 'Error: The selected session just became full. Please choose another one.';
+                        generalError.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // 3. REGISTER to Firestore
+                    const registrationDataFireStore = {
+                        rawName: rawName,
+                        rawClass: rawClass,
+                        formattedName: formattedName, 
+                        formattedClass: formattedClass, 
+                        selectedSessionText: selectedSessionText,
+                        sessionKey: sessionKey, 
+                        timestamp: new Date().toISOString(),
+                        userId: window.currentUserId, 
+                    };
+
+                    const registerOperation = () => addDoc(collection(db, collectionPath), registrationDataFireStore);
+                    await retryWithBackoff(registerOperation);
+
+                    // LOG to Google Sheet (Asynchronously)
+                    logToGoogleSheet(registrationDataFireStore);
+
+                } else {
+                    // --- LOCAL MODE LOGIC ---
+                    console.warn("Local Mode: Skipping Firestore duplicate/capacity checks. Only attempting Google Sheet log.");
+                    
+                    // Dữ liệu cho Google Sheet (không cần kiểm tra trùng lặp)
+                    const registrationDataLocal = {
+                        rawName: rawName,
+                        rawClass: rawClass,
+                        formattedName: formattedName, 
+                        formattedClass: formattedClass, 
+                        selectedSessionText: selectedSessionText,
+                        sessionKey: sessionKey, 
+                        timestamp: new Date().toISOString(),
+                        userId: window.currentUserId, 
+                    };
+                    
+                    // LOG to Google Sheet (Asynchronously)
+                    logToGoogleSheet(registrationDataLocal);
                 }
-                
-                // 2. CHECK CAPACITY AGAIN (in case another user registered since the last snapshot update)
-                if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
-                    generalError.textContent = 'Error: The selected session just became full. Please choose another one.';
-                    generalError.classList.remove('hidden');
-                    return;
-                }
-
-                // 3. REGISTER to Firestore AND LOG to Google Sheet
-                const registrationData = {
-                    rawName: rawName,
-                    rawClass: rawClass,
-                    formattedName: formattedName, // Saved for filtering/display
-                    formattedClass: formattedClass, // Saved for filtering/display
-                    selectedSessionText: selectedSessionText,
-                    sessionKey: sessionKey, // Saved for counting
-                    timestamp: new Date().toISOString(),
-                    userId: window.currentUserId, // Store for potential tracking
-                };
-
-                const registerOperation = () => addDoc(collection(db, collectionPath), registrationData);
-                await retryWithBackoff(registerOperation);
-                
-                // LOG TO GOOGLE SHEET (Asynchronously, after successful Firestore registration)
-                logToGoogleSheet(registrationData);
 
 
                 // 4. SHOW SUCCESS SCREEN
@@ -620,10 +709,7 @@
         // Initialize Firebase will call window.setupListeners once auth is ready
         if (typeof window.initFirebase === 'function') {
             // Note: initFirebase is called in the first script tag
-            // If the environment does not define __firebase_config, we start the check immediately
-            if (!window.firebaseConfig || Object.keys(window.firebaseConfig).length === 0) {
-                 window.setupListeners(crypto.randomUUID());
-            }
+            // The logic now handles the case where __firebase_config is missing (local mode)
         } else {
              // Fallback if the module imports fail (shouldn't happen)
              loadingMessage.textContent = 'System Initialization Error.';
