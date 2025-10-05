@@ -3,757 +3,631 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Puppet Show: The Legend of Yết Kiêu</title>
+    <title>Water Puppet Show Ticket Registration</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Load Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Load Firebase/Firestore -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, addDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+        let currentUserId = null;
+        let isAuthReady = false;
+
+        // Set up Firebase and Auth Listener
+        window.initFirebase = async () => {
+            try {
+                // Set Firestore log level to Debug for visibility
+                setLogLevel('Debug');
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                window.db = db; // Make DB available globally for the main script
+
+                // EXPOSED Firestore FUNCTIONS: Make collection, query, where, etc. available to the main script block
+                window.collection = collection;
+                window.query = query;
+                window.where = where;
+                window.getDocs = getDocs;
+                window.addDoc = addDoc;
+                window.onSnapshot = onSnapshot;
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                    } else {
+                        // Sign in anonymously if no custom token is provided
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    }
+                    if (user || !initialAuthToken) { // Ready when user is signed in or anonymous sign-in failed/skipped
+                        currentUserId = auth.currentUser?.uid || crypto.randomUUID();
+                        isAuthReady = true;
+                        window.setupListeners(currentUserId);
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.getElementById('loading-message').textContent = 'Error initializing system. Check console for details.';
+            }
+        };
+
+        // Utility function to retry Firestore operations with exponential backoff
+        window.retryWithBackoff = async (operation, maxRetries = 5, delay = 1000) => {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    return await operation();
+                } catch (error) {
+                    // 7 = 'PERMISSION_DENIED', 8 = 'RESOURCE_EXHAUSTED' (for rate limiting)
+                    if (error.code && (error.code === 'permission-denied' || error.code === 'resource-exhausted')) {
+                        console.warn(`Firestore operation failed (attempt ${i + 1}/${maxRetries}): ${error.message}. Retrying in ${delay / 1000}s...`);
+                        if (i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; // Exponential backoff
+                        } else {
+                            throw new Error(`System Overloaded or Permission Denied: Could not complete registration after ${maxRetries} attempts. Please try again later.`);
+                        }
+                    } else {
+                        // Throw other errors immediately
+                        throw error;
+                    }
+                }
+            }
+        };
+        
+        window.initFirebase();
+    </script>
     <style>
-        /* Custom Styles for Background Image and Overlay (Original Theme) */
-        body {
+        :root {
             font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 1rem 0.5rem; 
-            
-            /* Background Image from user request (Water Puppet Stage) */
+        }
+        .backdrop {
             background-image: url('https://livingnomads.com/wp-content/uploads/2017/03/30/hue-water-puppet-show-1068x801.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
             position: relative;
         }
-        
-        /* Overlay for better text readability */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.55); /* Dark overlay */
-            z-index: -1;
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.7); /* Dark overlay for better text contrast */
         }
-
-        .container {
-            max-width: 600px; 
-            width: 100%;
-        }
-        
-        /* Card appearance: slightly translucent white/grey */
-        .card {
-            background-color: rgba(255, 255, 255, 0.9); 
-            border-radius: 0.75rem; 
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        /* Header Title Styling (ADJUSTED for full width and 2 lines) */
-        .header-title {
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
-            color: #fff;
-            background-color: rgba(0, 50, 100, 0.7);
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1rem;
-            width: 100%; /* Ensure full width */
-            max-width: 100%; /* Override previous max-width: 400px; */
-            box-sizing: border-box; /* Include padding in width calculation */
-        }
-        .header-title h1 {
+        .styled-title {
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
             line-height: 1.1;
         }
-
-        /* Primary Button (Green Accent) */
-        .button-primary {
-            background-color: #10b981; /* Emerald Green */
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 700;
-            transition: background-color 0.2s;
+        .counter-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .button-primary:hover:not(:disabled) {
-            background-color: #059669;
-        }
-
-        /* Input Focus (Green Border) */
-        .input-field {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .input-field:focus {
-            border-color: #10b981;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-        }
-        
-        /* Session Item Styling */
-        .session-item {
-            cursor: pointer;
-            border: 1px solid #d1d5db;
-            transition: all 0.2s;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            text-align: center;
-        }
-        .session-item.selected {
-            border-color: #10b981; 
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
-            background-color: #f0fdf4;
-        }
-        .sold-out {
-            background-color: #fef2f2; /* Light Red for sold out */
-            color: #991b1b;
-            cursor: not-allowed;
-            opacity: 0.7;
-            pointer-events: none;
-            border-color: #fca5a5;
-        }
-        .session-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-        }
-        .session-grid > div {
-            min-height: 80px; /* Ensure consistent height */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        /* Status Header */
-        .status-header {
-            background-color: #eff6ff; 
-            border: 1px solid #bfdbfe;
-            color: #1e40af;
-        }
-
-        /* NEW: Style for clickable session labels */
-        .session-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #e5e7eb; /* default border */
-            border-radius: 0.5rem;
-            padding: 0.75rem 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%; /* Ensure it fills the space */
-            min-height: 50px;
-        }
-        .session-label:hover:not(.opacity-50) {
-            border-color: #a7f3d0;
-            background-color: #f7fee7;
-        }
-        .session-label input[type="radio"] {
-            display: none; /* Hide the default radio button */
-        }
-        .session-label input[type="radio"]:checked + .session-display {
-            border-color: #059669; /* Darker green border when checked */
-            background-color: #ecfdf5; /* Light green background when checked */
-            color: #047857; /* Darker text */
-            font-weight: 700;
-        }
-        .session-display {
-            /* This is the visual box that responds to the radio state */
-            border: 2px solid transparent; /* Used for visual checked state */
-            border-radius: 0.375rem;
-            width: 100%;
-            text-align: center;
-            padding: 0.25rem 0;
-            transition: all 0.2s;
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
-        /* Custom styling for the text inside the box */
-        .session-time-text {
-            letter-spacing: 0.05em; /* tracking-wide equivalent */
-            font-size: 1rem; /* text-base equivalent */
-            font-weight: 600;
-        }
-        
-        /* --- Style for disabled (FULL) sessions with overlay --- */
-        .session-label.opacity-50 {
-            background-color: #fef2f2;
-            border-color: #fca5a5;
-            cursor: not-allowed;
-            position: relative; /* Needed for absolute overlay */
-            overflow: hidden;
-        }
-        .session-label.opacity-50 .session-time-text {
-            color: #b91c1c;
-        }
-        /* NEW FULL overlay style */
-        .session-label.opacity-50::before {
-            content: 'FULL';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.5rem; /* Larger text */
-            font-weight: 800;
-            color: rgba(220, 38, 38, 0.65); /* Red text, semi-transparent */
-            background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white background */
-            pointer-events: none; /* Allows clicks to pass through to the disabled input/label */
-            z-index: 10;
-            transform: rotate(-5deg); /* Slight rotation for emphasis */
-            border-radius: 0.5rem; /* Match the label border radius */
-        }
-
-        /* Full-Screen Confirmation Page Overlay */
-        #confirmation-screen-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            /* BỎ display:flex CỐ ĐỊNH Ở ĐÂY để cho Tailwind's 'hidden' class hoạt động */
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.75); /* Darker overlay */
-            z-index: 50; /* Above all other content */
-        }
-
-        /* Bổ sung: Đảm bảo khi không có lớp 'hidden', nó phải là flex */
-        #confirmation-screen-wrapper:not(.hidden) {
-            display: flex;
-        }
-        
-        #confirmation-screen {
-            background-color: white;
-            max-width: 450px;
-            width: 90%;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
-            animation: fadeIn 0.5s ease-out;
-            text-align: center;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Loading Spinner */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            display: none;
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-top: 4px solid #10b981;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
     </style>
 </head>
-<body>
+<body class="backdrop min-h-screen">
+    <div class="overlay min-h-screen p-4 md:p-8 flex items-center justify-center">
 
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="spinner"></div>
-    </div>
-
-    <!-- Message Box (Standard) -->
-    <div id="message-box" role="alert" style="position: fixed; top: 1rem; right: 1rem; z-index: 1000; padding: 1rem; border-radius: 0.5rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: none; opacity: 0; transition: opacity 0.3s ease-in-out;"></div>
-
-    <div class="container" id="main-content">
-        
-        <!-- HEADER TITLE SECTION -->
-        <div class="header-title text-center mx-auto">
-            <p class="text-xs font-semibold uppercase text-red-300 tracking-wider mb-1">EXCLUSIVE SHOW</p>
-            <h1 class="text-4xl font-black tracking-tight text-yellow-500">
-                WATER PUPPET SHOW: <br>THE LEGEND OF YẾT KIÊU
-            </h1>
-            <p class="text-sm font-medium text-gray-200 mt-1">
-                The story of one of the five brilliant commanders of Hưng Đạo Vương.
-            </p>
-        </div>
-
-        <!-- KEY DETAILS SECTION -->
-        <div class="card space-y-3">
-            <h2 class="text-lg font-bold text-gray-800 flex items-center mb-3">
-                <span class="text-green-600 mr-2">✅</span> Key Details
-            </h2>
-            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div class="font-bold text-gray-700">Organizers:</div>
-                <div class="text-right">Nguyen Khuyen English Dept. & HCMC Center of Arts</div>
-                
-                <div class="font-bold text-gray-700">Time:</div>
-                <div class="text-right text-red-600 font-bold">October 18, 2025</div>
-                
-                <div class="font-bold text-gray-700">Price:</div>
-                <div class="text-right text-green-600 font-bold">80,000 VND/ticket</div>
-                
-                <div class="font-bold text-gray-700">Location:</div>
-                <div class="text-right text-sm text-gray-600">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</div>
-            </div>
-        </div>
-
-        <!-- IMPORTANT NOTICE SECTION -->
-        <div class="card bg-red-50 border-l-4 border-red-500">
-            <h3 class="text-lg font-bold text-red-700 flex items-center mb-2">
-                <span class="text-xl mr-2">❗️</span> Important Notice
-            </h3>
-            <ul class="text-sm text-gray-700 list-disc pl-5 space-y-2">
-                <li>Each student can only register for <strong>1 ticket</strong>.</li>
-                <li>Show is exclusively for <strong>10th-grade students</strong> of Nguyen Khuyen High School.</li>
-                <li>Deadline: <strong>23:59 on Oct 7, 2025</strong> or when <strong>130 seats/session</strong> are filled.</li>
-            </ul>
-        </div>
-        
-        <!-- REGISTRATION STATUS -->
-        <div class="card p-0 overflow-hidden">
-            <div id="registration-status-box" class="status-header p-4 text-center rounded-t-lg">
-                <p class="text-lg font-extrabold" id="status-message">LOADING REGISTRATION STATUS...</p>
-                <p class="text-sm font-normal mt-1" id="countdown-timer">Checking form availability...</p>
-            </div>
-        </div>
-
-        <!-- SESSION AVAILABILITY STATUS (Full session times in titles) -->
-        <div class="card">
-            <h2 class="text-lg font-bold text-gray-800 mb-4 text-center">
-                Session Availability Status
-            </h2>
-            <div id="stats-container" class="session-grid">
-                <p class="col-span-3 text-center text-gray-500 italic">Loading data...</p>
-            </div>
-        </div>
+        <!-- Main Container -->
+        <div id="app-container" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-500">
             
-        <!-- TICKET REGISTRATION FORM -->
-        <div class="card" id="registration-card"> 
-            <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center border-b pb-2">
-                <span class="text-green-600 mr-2">🎟️</span> Ticket Registration (Max 1)
-            </h2>
-
-            <form id="registration-form" class="space-y-5">
-                <!-- Student Info -->
-                <div>
-                    <label for="fullName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input type="text" id="fullName" name="fullName" required class="input-field" placeholder="E.g., Nguyen Van A">
-                </div>
-
-                <div>
-                    <label for="class" class="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                    <input type="text" id="class" name="class" required class="input-field" pattern="^10[a-zA-Z0-9-]+" title="Class must start with '10'" placeholder="e.g., 10A1, 10B2">
-                    <p class="text-xs text-red-500 mt-1" id="class-error-message" style="display: none;">Validation Error: Only Grade 10 students are eligible (Class must start with '10').</p>
-                </div>
-
-                <!-- Session Selection (Radio Buttons - ADJUSTED FOR FRAME AND BOLDING) -->
-                <div class="pt-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Session</label>
-                    <div id="session-radio-buttons" class="flex justify-around items-center gap-2"> 
-                        
-                        <label class="session-label flex-1 text-gray-700 text-sm">
-                            <input type="radio" name="sessionRadio" value="Session 1: 8:00-9:00">
-                            <div class="session-display">
-                                <span class="session-time-text">8:00-9:00</span>
-                            </div>
-                        </label>
-                        
-                        <label class="session-label flex-1 text-gray-700 text-sm">
-                            <input type="radio" name="sessionRadio" value="Session 2: 13:00-14:00">
-                            <div class="session-display">
-                                <span class="session-time-text">13:00-14:00</span>
-                            </div>
-                        </label>
-                        
-                        <label class="session-label flex-1 text-gray-700 text-sm">
-                            <input type="radio" name="sessionRadio" value="Session 3: 16:00-17:00">
-                            <div class="session-display">
-                                <span class="session-time-text">16:00-17:00</span>
-                            </div>
-                        </label>
-                    </div>
-                    <input type="hidden" id="selectedSession" name="session" required>
-                </div>
-
-                <div class="pt-4">
-                    <!-- Button is disabled initially and enabled by JS/GAS check -->
-                    <button type="submit" id="submit-button" class="button-primary w-full text-lg hover:shadow-lg opacity-50 cursor-not-allowed" disabled>
-                        Loading Status...
-                    </button>
-                </div>
-            </form>
-        </div>
-        
-    </div>
-    
-    <!-- Full-Screen Confirmation Page Wrapper -->
-    <!-- ĐÃ THÊM class="hidden" VÀO TRẠNG THÁI KHỞI TẠO -->
-    <div id="confirmation-screen-wrapper" class="hidden"> 
-        <div id="confirmation-screen" class="shadow-2xl">
-            <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
-                    onerror="this.onerror=null;this.src='https://placehold.co/300x200/10b981/ffffff?text=SUCCESS!';" 
-                    alt="Cheerful confirmation image" 
-                    class="mx-auto h-32 w-auto object-cover rounded-lg shadow-xl mb-4">
-            
-            <h2 class="text-3xl font-bold text-gray-900 mt-4 text-emerald-600">CONGRATULATIONS!</h2>
-            <h3 class="text-xl font-semibold text-gray-700 mt-1">Registration Successful!</h3>
-            
-            <div class="mt-6 bg-emerald-50 p-4 rounded-lg shadow-inner text-left border-l-4 border-emerald-500">
-                <p class="text-lg font-semibold text-gray-800">Your Registration Details:</p>
-                <p class="mt-1 text-gray-700"><strong>Full Name:</strong> <span id="conf-fullName" class="font-medium"></span></p>
-                <p class="text-gray-700"><strong>Class:</strong> <span id="conf-class" class="font-medium"></span></p>
-                <p class="text-gray-700"><strong>Session:</strong> <span id="conf-session" class="font-medium"></span></p>
-                
-                <p class="text-sm mt-3 text-red-700 font-bold">
-                    Please wait for the official list and prepare 80,000 VND for payment.
+            <!-- Loading/Time Check Screen -->
+            <div id="initial-check-screen" class="text-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                <p id="loading-message" class="text-xl text-gray-700">Checking system status and time limit...</p>
+                <p class="text-sm text-gray-500 mt-2">Current User ID: <span id="user-id-display" class="font-mono text-xs">Loading...</span></p>
+                <p id="overload-tip" class="text-red-500 font-semibold mt-4 hidden">
+                    ⚠️ System Overload Tip: If you face frequent 'System Overloaded' errors, please wait 5-10 minutes and try again when fewer students are accessing the site simultaneously.
                 </p>
             </div>
+
+            <!-- Registration Form Screen -->
+            <div id="registration-screen" class="hidden">
+                <div class="text-center text-white p-4 -mx-6 -mt-10 md:-mx-10 rounded-t-xl" style="background-color: #3b82f6;">
+                    <h1 class="styled-title text-4xl sm:text-5xl font-extrabold mb-1">
+                        Water Puppet Show:
+                    </h1>
+                    <h1 class="styled-title text-4xl sm:text-5xl font-extrabold">
+                        The Legend of Yết Kiêu
+                    </h1>
+                </div>
+
+                <p class="text-center text-gray-700 mt-4 italic">
+                    The story of one of the five brilliant generals of King Trần Hưng Đạo.
+                </p>
+
+                <!-- Event Details -->
+                <div class="mt-6 border-t pt-4">
+                    <h2 class="text-2xl font-bold text-red-600 mb-3">Event Information</h2>
+                    <dl class="text-gray-700 space-y-2">
+                        <div class="flex flex-col sm:flex-row">
+                            <dt class="font-semibold w-full sm:w-1/3">Organizer:</dt>
+                            <dd class="w-full sm:w-2/3">Nguyen Khuyen High School English Dept. in collaboration with HCMC Art Center</dd>
+                        </div>
+                        <div class="flex flex-col sm:flex-row">
+                            <dt class="font-semibold w-full sm:w-1/3">Location:</dt>
+                            <dd class="w-full sm:w-2/3">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</dd>
+                        </div>
+                        <div class="flex flex-col sm:flex-row">
+                            <dt class="font-semibold w-full sm:w-1/3">Time:</dt>
+                            <dd class="w-full sm:w-2/3 text-lg font-bold text-blue-700">October 18, 2025</dd>
+                        </div>
+                        <div class="flex flex-col sm:flex-row">
+                            <dt class="font-semibold w-full sm:w-1/3">Ticket Price:</dt>
+                            <dd class="w-full sm:w-2/3 font-bold text-red-600">80,000 VND/ticket</dd>
+                        </div>
+                    </dl>
+
+                    <div class="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                        <h3 class="font-bold text-yellow-800">Important Notes:</h3>
+                        <ul class="list-disc list-inside text-sm text-gray-700 space-y-1 mt-1">
+                            <li>This special water puppet show is <b>exclusive</b> for <b>10th-grade students</b> of Nguyen Khuyen High School.</li>
+                            <li>The registration link will close at <b>11:00 PM on October 7, 2025</b>, or when <b>130 seats/session</b> are full.</li>
+                            <li>Each student can register for <b>1 ticket only</b>.</li>
+                            <li>Payment (80,000 VND) will be collected after the final list is announced.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Registration Form -->
+                <form id="registration-form" class="mt-8 space-y-6">
+                    <h2 class="text-2xl font-bold text-blue-600">Registration Information</h2>
+                    
+                    <div>
+                        <label for="fullName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" id="fullName" name="fullName" required 
+                               placeholder="e.g., Nguyen Van A"
+                               class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <p id="name-error" class="text-red-500 text-xs mt-1 hidden">Invalid name format. Please enter a meaningful name.</p>
+                    </div>
+
+                    <div>
+                        <label for="class" class="block text-sm font-medium text-gray-700">Class</label>
+                        <input type="text" id="class" name="class" required 
+                               placeholder="e.g., 10A1 or 10B2 (Must start with '10')"
+                               class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase">
+                        <p id="class-error" class="text-red-500 text-xs mt-1 hidden">Class must start with '10' (e.g., 10A1).</p>
+                    </div>
+
+                    <!-- Session Selection -->
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Select a Session (1 ticket per student)</h3>
+                        <div class="space-y-3">
+                            <!-- Session 1 -->
+                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
+                                <input type="radio" name="session" value="Session 1: 8:00 AM - 9:00 AM" class="form-radio h-4 w-4 text-blue-600" required>
+                                <span class="ml-3 text-gray-900 font-medium">Session 1: 8:00 AM - 9:00 AM</span>
+                                <div class="ml-auto text-sm text-right">
+                                    <p class="font-bold text-green-600" id="count-1">Loading...</p>
+                                </div>
+                            </label>
+                            <!-- Session 2 -->
+                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
+                                <input type="radio" name="session" value="Session 2: 1:00 PM - 2:00 PM" class="form-radio h-4 w-4 text-blue-600" required>
+                                <span class="ml-3 text-gray-900 font-medium">Session 2: 1:00 PM - 2:00 PM</span>
+                                <div class="ml-auto text-sm text-right">
+                                    <p class="font-bold text-green-600" id="count-2">Loading...</p>
+                                </div>
+                            </label>
+                            <!-- Session 3 -->
+                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
+                                <input type="radio" name="session" value="Session 3: 4:00 PM - 5:00 PM" class="form-radio h-4 w-4 text-blue-600" required>
+                                <span class="ml-3 text-gray-900 font-medium">Session 3: 4:00 PM - 5:00 PM</span>
+                                <div class="ml-auto text-sm text-right">
+                                    <p class="font-bold text-green-600" id="count-3">Loading...</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="duplicate-error" class="text-center bg-red-100 border border-red-400 text-red-700 p-3 rounded hidden">
+                        <b>Error:</b> Registration failed. A ticket has already been registered for this Name and Class combination. Each student can only register once.
+                    </div>
+                    
+                    <div id="general-error" class="text-center bg-red-100 border border-red-400 text-red-700 p-3 rounded hidden">
+                        <b>Error:</b> An unexpected error occurred. Check the console or try again later.
+                    </div>
+
+                    <button type="submit" id="submit-button"
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out disabled:opacity-50"
+                            disabled>
+                        Register Ticket
+                    </button>
+                </form>
+            </div>
+
+            <!-- Success Screen -->
+            <div id="success-screen" class="hidden text-center py-10">
+                <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
+                     alt="Joyful congratulations image" 
+                     class="mx-auto w-32 h-32 md:w-48 md:h-48 rounded-full shadow-lg object-cover mb-6 border-4 border-green-500">
+                
+                <h2 class="text-3xl md:text-4xl font-extrabold text-green-700 mb-4">
+                    🎉 Registration Successful! 🎉
+                </h2>
+
+                <div class="bg-green-50 p-6 rounded-lg border border-green-300 mx-auto max-w-md">
+                    <p class="text-lg text-gray-800 mb-4">
+                        Dear <span id="success-name" class="font-bold text-blue-600"></span>,
+                    </p>
+                    <p class="text-lg text-gray-800 mb-4">
+                        You have successfully registered for the Water Puppet Show.
+                    </p>
+                    
+                    <div class="text-left space-y-2 mb-6">
+                        <p class="font-semibold">Class: <span id="success-class" class="text-red-500"></span></p>
+                        <p class="font-semibold">Selected Session: <span id="success-session" class="text-red-500"></span></p>
+                    </div>
+
+                    <p class="text-red-600 font-bold text-xl mb-4">
+                        Please prepare 80,000 VND for payment.
+                    </p>
+                    <p class="text-sm text-gray-600">
+                        A final official list and payment collection details will be announced later.
+                    </p>
+                </div>
+
+                <p class="mt-6 text-sm text-gray-500">Thank you for your interest!</p>
+            </div>
+
         </div>
     </div>
 
-
-    <script>
-        // !! BƯỚC QUAN TRỌNG: ĐÃ THAY THẾ BẰNG WEB APP URL MỚI CỦA BẠN !!
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwjFfaVEoJHsfkh_hcK1hK9U4VGEBT4p72PIm1cJHpiENA5o--QFeXJNe38B2-yHhui/exec'; 
-
-        // Configuration (MUST match GAS settings)
-        const SESSION_NAMES = ["Session 1: 8:00-9:00", "Session 2: 13:00-14:00", "Session 3: 16:00-17:00"];
+    <script type="module">
+        // Import necessary components from the global scope set up in the first script tag
+        const { db, retryWithBackoff, collection, query, where, getDocs, addDoc, onSnapshot } = window; 
         
-        // DOM Elements
-        const form = document.getElementById('registration-form');
-        const mainContent = document.getElementById('main-content');
-        const statsContainer = document.getElementById('stats-container');
-        const selectedSessionInput = document.getElementById('selectedSession');
-        const sessionRadioButtons = document.getElementById('session-radio-buttons');
-        const statusMessage = document.getElementById('status-message');
-        const countdownTimer = document.getElementById('countdown-timer');
+        // ** ĐƯỜNG DẪN WEB APP APPS SCRIPT ĐÃ TRIỂN KHAI CỦA BẠN **
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMgRd7aZSteqXhd0FT57ABEIcdBqlNNcv68FFEB6Ii_6FF6IQMTI9ScOJ2FGk8yyeN/exec';
+
+        const MAX_CAPACITY = 130;
+        const OPENING_TIME = new Date("2025-10-05T10:40:00+07:00"); // 10:40 AM, Oct 5, 2025 HCMC time
+        const CLOSING_TIME = new Date("2025-10-07T23:00:00+07:00"); // 11:00 PM, Oct 7, 2025 HCMC time
+        const SESSION_MAP = {
+            'Session 1: 8:00 AM - 9:00 AM': 'Session 1',
+            'Session 2: 1:00 PM - 2:00 PM': 'Session 2',
+            'Session 3: 4:00 PM - 5:00 PM': 'Session 3',
+        };
+        const sessionCounts = {
+            'Session 1': 0,
+            'Session 2': 0,
+            'Session 3': 0,
+        };
+
+        let isFormOpen = false;
+        let isRegistrationActive = false;
+        
+        const registrationScreen = document.getElementById('registration-screen');
+        const initialCheckScreen = document.getElementById('initial-check-screen');
+        const loadingMessage = document.getElementById('loading-message');
+        const overloadTip = document.getElementById('overload-tip');
         const submitButton = document.getElementById('submit-button');
+        const registrationForm = document.getElementById('registration-form');
+        const successScreen = document.getElementById('success-screen');
         const classInput = document.getElementById('class');
-        const classErrorMessage = document.getElementById('class-error-message');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const messageBox = document.getElementById('message-box');
-        const confirmationWrapper = document.getElementById('confirmation-screen-wrapper');
-        const statusHeaderBox = document.getElementById('registration-status-box');
+        const fullNameInput = document.getElementById('fullName');
+        const nameError = document.getElementById('name-error');
+        const classError = document.getElementById('class-error');
+        const duplicateError = document.getElementById('duplicate-error');
+        const generalError = document.getElementById('general-error');
+        const userIdDisplay = document.getElementById('user-id-display');
 
-        let maxCapacity = 130;
-        let countdownInterval; // Biến lưu trữ ID của interval đếm ngược
+        // --- Utility Functions ---
 
-        // --- UTILITY FUNCTIONS ---
+        // Function to format the name (Capitalize first letter of each word)
+        const formatName = (str) => {
+            return str.toLowerCase().split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ').trim();
+        };
 
-        function showMessage(type, message) {
-            messageBox.textContent = message;
-            messageBox.className = ''; 
-            messageBox.classList.add(type, 'text-white');
-            if (type === 'success') messageBox.style.backgroundColor = '#10b981';
-            if (type === 'error') messageBox.style.backgroundColor = '#ef4444';
+        // Function to check for meaningless concatenated characters
+        const isValidName = (name) => {
+            // Check for general length and non-empty words
+            if (name.trim().length < 3) return false;
 
-            messageBox.style.opacity = 1;
-            messageBox.style.display = 'block';
+            // Regex to check for non-stop repeating characters (e.g., 'aaaaa', '11111') or keyboard-walks (e.g., 'asdfghjkl')
+            // This is a simple defense. Real-world validation would be more complex.
+            const repeatedChars = /(.)\1{3,}/i; // 4 or more of the same char
+            const keyboardWalk = /(asdf|qwerty|zxcv|dfgh|hjkl|jkl;)/i; // common bad patterns
 
-            setTimeout(() => {
-                messageBox.style.opacity = 0;
-                setTimeout(() => {
-                    messageBox.style.display = 'none';
-                }, 300);
-            }, 5000);
-        }
-
-        function toggleLoading(show) {
-            loadingOverlay.style.display = show ? 'flex' : 'none';
-        }
-
-        /**
-         * Chuyển đổi đối tượng JS thành chuỗi query URL.
-         * @param {object} params - Tham số.
-         * @returns {string} Chuỗi query.
-         */
-        function encodeData(params) {
-            return Object.keys(params)
-                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
-                .join('&');
-        }
-        
-        // Hàm định dạng số về 2 chữ số (ví dụ: 5 -> 05)
-        const pad = (n) => (n < 10 ? '0' + n : n);
-
-        /**
-         * Bắt đầu bộ đếm ngược thời gian mở form.
-         * @param {number} startTimestamp - Thời gian form sẽ mở (miligiây).
-         */
-        function startCountdown(startTimestamp) {
-            // Xóa bộ đếm cũ nếu có
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
+            if (repeatedChars.test(name) || keyboardWalk.test(name.toLowerCase())) {
+                return false;
             }
 
-            const updateTimer = () => {
-                const now = new Date().getTime();
-                const diff = startTimestamp - now;
+            // Simple check: Must contain at least one space (for Full Name)
+            if (!name.includes(' ')) {
+                return false;
+            }
 
-                if (diff <= 0) {
-                    clearInterval(countdownInterval);
-                    statusMessage.textContent = "REGISTRATION IS OPENING NOW...";
-                    countdownTimer.textContent = "Refreshing status...";
-                    // Tự động tải lại trạng thái form khi hết giờ
-                    fetchStats(); 
+            return true;
+        };
+
+        // Function to check form state and toggle submit button
+        const checkFormState = () => {
+            const isNameValid = isValidName(fullNameInput.value);
+            const isClassValid = classInput.value.trim().toUpperCase().startsWith('10');
+            const isSessionSelected = registrationForm.querySelector('input[name="session"]:checked');
+
+            nameError.classList.toggle('hidden', isNameValid || fullNameInput.value.length === 0);
+            classError.classList.toggle('hidden', isClassValid || classInput.value.length === 0);
+
+            submitButton.disabled = !(isFormOpen && isNameValid && isClassValid && isSessionSelected);
+            
+            // Check for capacity limit
+            if (isSessionSelected) {
+                const sessionKey = SESSION_MAP[isSessionSelected.value];
+                if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
+                    submitButton.textContent = `Session ${sessionKey.slice(-1)} is FULL`;
+                    submitButton.disabled = true;
+                } else {
+                    submitButton.textContent = 'Register Ticket';
+                    submitButton.disabled = !(isFormOpen && isNameValid && isClassValid);
+                }
+            } else {
+                submitButton.textContent = 'Register Ticket';
+            }
+        };
+
+        fullNameInput.addEventListener('input', checkFormState);
+        classInput.addEventListener('input', checkFormState);
+        document.querySelectorAll('input[name="session"]').forEach(radio => radio.addEventListener('change', checkFormState));
+
+
+        // --- Time Check and UI Toggling ---
+
+        const checkTimeAndToggleUI = () => {
+            const now = new Date();
+            const timeDiffOpen = OPENING_TIME.getTime() - now.getTime();
+            const timeDiffClose = CLOSING_TIME.getTime() - now.getTime();
+
+            if (timeDiffOpen > 0) {
+                // Form is not yet open
+                isFormOpen = false;
+                loadingMessage.innerHTML = `Registration opens on <b>${OPENING_TIME.toLocaleString('en-US')}</b>. Please wait.`;
+                submitButton.textContent = 'Registration Not Yet Open';
+                submitButton.disabled = true;
+
+                // Set a timer to re-check when it should open
+                setTimeout(checkTimeAndToggleUI, timeDiffOpen + 100);
+            } else if (timeDiffClose < 0) {
+                // Form is closed
+                isFormOpen = false;
+                loadingMessage.innerHTML = `Registration is <b>CLOSED</b> since ${CLOSING_TIME.toLocaleString('en-US')}.`;
+                submitButton.textContent = 'Registration Closed';
+                submitButton.disabled = true;
+            } else {
+                // Form is open and active
+                isFormOpen = true;
+                initialCheckScreen.classList.add('hidden');
+                registrationScreen.classList.remove('hidden');
+                submitButton.disabled = false;
+                isRegistrationActive = true;
+                checkFormState();
+            }
+        };
+
+
+        // --- Firestore Setup and Handlers ---
+
+        window.setupListeners = (userId) => {
+            userIdDisplay.textContent = userId;
+            
+            if (!db) {
+                loadingMessage.textContent = 'Database connection failed.';
+                return;
+            }
+
+            // Collection path for public data: /artifacts/{appId}/public/data/water_puppet_registrations
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
+            const registrationsCollection = collection(db, collectionPath);
+            
+            // 1. Start the time check loop after auth is ready
+            checkTimeAndToggleUI();
+
+            // 2. Set up real-time listener for ticket counts
+            onSnapshot(registrationsCollection, (snapshot) => {
+                const currentCounts = { 'Session 1': 0, 'Session 2': 0, 'Session 3': 0 };
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.sessionKey) {
+                        currentCounts[data.sessionKey]++;
+                    }
+                });
+
+                Object.assign(sessionCounts, currentCounts);
+                
+                // Update UI counters and check form state
+                ['1', '2', '3'].forEach(i => {
+                    const sessionKey = `Session ${i}`;
+                    const count = sessionCounts[sessionKey];
+                    const remaining = MAX_CAPACITY - count;
+                    const countEl = document.getElementById(`count-${i}`);
+                    
+                    if (remaining <= 0) {
+                        countEl.innerHTML = `<span class="text-red-600 font-extrabold">FULL (${count}/${MAX_CAPACITY})</span>`;
+                        // Visually disable the radio button if full
+                        document.querySelector(`input[value="${Object.keys(SESSION_MAP).find(k => SESSION_MAP[k] === sessionKey)}"]`).disabled = true;
+                    } else {
+                        countEl.innerHTML = `Remaining: <span class="font-extrabold">${remaining}</span> / ${MAX_CAPACITY}`;
+                         document.querySelector(`input[value="${Object.keys(SESSION_MAP).find(k => SESSION_MAP[k] === sessionKey)}"]`).disabled = false;
+                        if (remaining <= 10) {
+                            countEl.classList.add('text-orange-500');
+                            countEl.classList.remove('text-green-600');
+                        } else {
+                            countEl.classList.add('text-green-600');
+                            countEl.classList.remove('text-orange-500');
+                        }
+                    }
+                });
+                checkFormState(); // Re-check button state after capacity update
+            }, (error) => {
+                console.error("Error setting up snapshot listener:", error);
+                loadingMessage.textContent = 'Error loading ticket data. Try reloading.';
+            });
+        };
+        
+        // Gửi dữ liệu đăng ký đến Apps Script Web App để ghi vào Google Sheet
+        const logToGoogleSheet = async (data) => {
+            if (APPS_SCRIPT_URL === 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE') {
+                console.warn("Apps Script URL is not configured. Skipping logging to Google Sheet.");
+                return;
+            }
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Cần thiết để Apps Script Web App chấp nhận request
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                // Lưu ý: Do sử dụng 'no-cors', chúng ta không thể đọc body JSON trả về.
+                // Chúng ta chỉ có thể kiểm tra xem fetch có bị lỗi mạng không.
+                if (!response.ok && response.type !== 'opaque') {
+                     // Nếu có lỗi HTTP (không phải lỗi network/no-cors), chúng ta vẫn in ra warning
+                     console.warn(`Warning: Could not confirm Google Sheet log status. HTTP Status: ${response.status}`);
+                }
+                
+                console.log("Data sent to Google Sheet endpoint.");
+
+            } catch (error) {
+                console.error("Error logging data to Google Sheet endpoint (Network/CORS issue expected with 'no-cors' mode):", error);
+                // Dù có lỗi log, chúng ta vẫn coi đăng ký thành công nếu đã lưu vào Firestore
+            }
+        }
+
+
+        // --- Registration Submission Handler ---
+
+        registrationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            duplicateError.classList.add('hidden');
+            generalError.classList.add('hidden');
+            
+            if (!isRegistrationActive) return;
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Registering... Please Wait';
+            overloadTip.classList.add('hidden');
+
+            const rawName = fullNameInput.value.trim();
+            const rawClass = classInput.value.trim();
+            const selectedSessionText = registrationForm.querySelector('input[name="session"]:checked')?.value;
+            
+            if (!isValidName(rawName) || !rawClass.toUpperCase().startsWith('10') || !selectedSessionText) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Register Ticket';
+                return;
+            }
+            
+            // Auto-formatting for saving
+            const formattedName = formatName(rawName);
+            const formattedClass = rawClass.toUpperCase();
+            const sessionKey = SESSION_MAP[selectedSessionText];
+
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
+            
+            try {
+                // 1. CHECK FOR DUPLICATE (Name + Class)
+                const checkDuplicateOperation = async () => {
+                    const q = query(
+                        collection(db, collectionPath),
+                        where("formattedName", "==", formattedName),
+                        where("formattedClass", "==", formattedClass)
+                    );
+                    const querySnapshot = await getDocs(q);
+                    return querySnapshot.empty; // Returns true if no duplicate found
+                };
+
+                const isUnique = await retryWithBackoff(checkDuplicateOperation);
+
+                if (!isUnique) {
+                    duplicateError.classList.remove('hidden');
+                    return;
+                }
+                
+                // 2. CHECK CAPACITY AGAIN (in case another user registered since the last snapshot update)
+                if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
+                    generalError.textContent = 'Error: The selected session just became full. Please choose another one.';
+                    generalError.classList.remove('hidden');
                     return;
                 }
 
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                // 3. REGISTER to Firestore AND LOG to Google Sheet
+                const registrationData = {
+                    rawName: rawName,
+                    rawClass: rawClass,
+                    formattedName: formattedName, // Saved for filtering/display
+                    formattedClass: formattedClass, // Saved for filtering/display
+                    selectedSessionText: selectedSessionText,
+                    sessionKey: sessionKey, // Saved for counting
+                    timestamp: new Date().toISOString(),
+                    userId: window.currentUserId, // Store for potential tracking
+                };
+
+                const registerOperation = () => addDoc(collection(db, collectionPath), registrationData);
+                await retryWithBackoff(registerOperation);
                 
-                let timeString = '';
-                if (days > 0) {
-                    timeString += `${days} days, `;
-                }
-                timeString += `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+                // LOG TO GOOGLE SHEET (Asynchronously, after successful Firestore registration)
+                logToGoogleSheet(registrationData);
 
-                countdownTimer.textContent = `Time remaining until open: ${timeString}`;
-            };
 
-            // Chạy lần đầu tiên và sau đó mỗi giây
-            updateTimer();
-            countdownInterval = setInterval(updateTimer, 1000);
-        }
-
-        /**
-         * Lấy dữ liệu từ Google Apps Script (Sử dụng doGet).
-         */
-        async function fetchStats() {
-            if (GAS_WEB_APP_URL.includes('PASTE_YOUR_GAS_WEB_APP_URL_HERE')) {
-                console.error("VUI LÒNG THAY THẾ GAS_WEB_APP_URL BẰNG URL WEB APP CỦA BẠN.");
-                showMessage('error', 'Cảnh báo: Vui lòng dán Web App URL của bạn để kích hoạt chức năng.');
-                // Mô phỏng dữ liệu để hiển thị giao diện khi lỗi config
-                renderStats({ "Session 1: 8:00-9:00": 120, "Session 2: 13:00-14:00": 80, "Session 3: 16:00-17:00": 130 }, 130);
-                return;
-            }
-            
-            try {
-                const response = await fetch(GAS_WEB_APP_URL, { method: 'GET' });
-                const result = await response.json();
+                // 4. SHOW SUCCESS SCREEN
+                document.getElementById('success-name').textContent = formattedName;
+                document.getElementById('success-class').textContent = formattedClass;
+                document.getElementById('success-session').textContent = selectedSessionText;
                 
-                if (result.success) {
-                    const data = result.data;
-                    maxCapacity = data.maxCapacity;
-
-                    renderStats(data.stats, data.maxCapacity);
-                    checkRegistrationStatus(data.formStatus, data.startTime, data.endTime);
-                } else {
-                    showMessage('error', `Lỗi tải thống kê: ${result.details}`);
-                }
-            } catch (error) {
-                console.error("Lỗi khi kết nối với GAS:", error);
-                showMessage('error', 'Không thể kết nối với hệ thống thống kê. Vui lòng kiểm tra lại URL.');
-            }
-        }
-
-        /**
-         * Hiển thị số liệu thống kê và cập nhật trạng thái các nút radio.
-         */
-        function renderStats(stats, capacity) {
-            let html = '';
-            
-            SESSION_NAMES.forEach(session => {
-                const registered = stats[session] || 0;
-                const remaining = Math.max(0, capacity - registered);
-                const isFull = remaining === 0;
-                
-                // Colors based on availability
-                const bgColor = isFull ? 'bg-red-100' : 'bg-gray-100';
-                const textColor = isFull ? 'text-red-700' : 'text-gray-700';
-                const numberColor = isFull ? 'text-red-600' : 'text-green-600';
-                const sessionTime = session.split(': ')[1].trim(); // Get the time part only
-
-                html += `
-                    <div class="p-3 rounded-lg ${bgColor} text-sm shadow-sm">
-                        <p class="font-bold text-base text-gray-800">${sessionTime}</p> 
-                        <p class="text-xs ${textColor} mt-1">
-                            <span class="font-bold ${numberColor}">${registered}</span> Registered
-                        </p>
-                        <p class="text-xs text-gray-500 mt-0.5">
-                            Capacity / <span class="font-bold text-red-600">${capacity}</span>
-                        </p>
-                    </div>
-                `;
-                
-                // Cập nhật trạng thái radio button trên form
-                const radio = sessionRadioButtons.querySelector(`input[value="${session}"]`);
-                if (radio) {
-                    radio.disabled = isFull;
-                    const parentLabel = radio.closest('.session-label');
-                    if (parentLabel) {
-                        parentLabel.classList.toggle('opacity-50', isFull); 
-                        parentLabel.classList.toggle('cursor-not-allowed', isFull);
-                        
-                        // Nếu suất đã đầy, hủy chọn nếu học sinh đã chọn trước đó
-                        if (isFull && radio.checked) {
-                            radio.checked = false;
-                            selectedSessionInput.value = '';
-                        }
-                    }
-                }
-            });
-
-            statsContainer.innerHTML = html;
-        }
-
-        /**
-         * Kiểm tra và cập nhật trạng thái mở/đóng của form.
-         */
-        function checkRegistrationStatus(status, startTimestamp, endTimestamp) {
-            // Đảm bảo dừng mọi bộ đếm cũ
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-            }
-            
-            // Format ngày giờ hiển thị
-            const formatTime = (date) => new Date(date).toLocaleString('vi-VN', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric' 
-            }).replace(',', '');
-
-            submitButton.disabled = true;
-            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
-
-            if (status === "OPEN") {
-                statusMessage.textContent = "REGISTRATION IS OPEN NOW";
-                countdownTimer.classList.remove('hidden');
-                countdownTimer.textContent = `Form closes at: ${formatTime(endTimestamp)}`;
-                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-green-100 text-green-700';
-                
-                // Kích hoạt nút submit
-                submitButton.disabled = false;
-                submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                submitButton.textContent = "Submit Registration";
-            } else if (status === "NOT_OPEN") {
-                statusMessage.textContent = "REGISTRATION IS NOT OPEN YET";
-                countdownTimer.classList.remove('hidden');
-                
-                // Kích hoạt bộ đếm ngược
-                startCountdown(startTimestamp);
-                
-                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-yellow-100 text-yellow-700';
-                submitButton.textContent = "Registration Not Open Yet";
-
-            } else { // CLOSED
-                statusMessage.textContent = "REGISTRATION HAS ENDED";
-                countdownTimer.classList.add('hidden');
-                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-red-100 text-red-700';
-                submitButton.textContent = "Registration Closed";
-            }
-        }
-
-        // --- EVENT LISTENERS ---
-
-        // Update hidden input when a radio button is selected
-        sessionRadioButtons.addEventListener('change', (e) => {
-            if (e.target.name === 'sessionRadio' && !e.target.disabled) {
-                selectedSessionInput.value = e.target.value;
-            }
-        });
-
-        // Form Submission Handler (Sử dụng doPost)
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            // 1. Client-side validation
-            if (!classInput.value.match(/^10[a-zA-Z0-9-]+/)) {
-                classErrorMessage.style.display = 'block';
-                showMessage('error', 'Validation Error: Only Grade 10 students are eligible (Class must start with "10").');
-                return;
-            } else {
-                classErrorMessage.style.display = 'none';
-            }
-            
-            if (!selectedSessionInput.value) {
-                showMessage('error', 'Please select a session before submitting.');
-                return;
-            }
-
-            toggleLoading(true);
-
-            // 2. Prepare data for POST request
-            const formData = {
-                fullName: document.getElementById('fullName').value.trim(),
-                class: document.getElementById('class').value.trim(),
-                session: selectedSessionInput.value,
-            };
-
-            try {
-                // Post data to GAS (Web App URL)
-                const response = await fetch(GAS_WEB_APP_URL, {
-                    method: 'POST',
-                    // Đảm bảo dữ liệu được gửi dưới dạng x-www-form-urlencoded
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: encodeData(formData)
-                });
-                
-                const result = await response.json();
-
-                if (result.success) {
-                    // 3. Đăng ký thành công: Chuyển sang trang chúc mừng
-                    const registeredData = result.data;
-                    document.getElementById('conf-fullName').textContent = registeredData.fullName; // Tên đã được Title Case từ GAS
-                    document.getElementById('conf-class').textContent = registeredData.className;     // Lớp đã được viết hoa từ GAS
-                    document.getElementById('conf-session').textContent = registeredData.selectedSession;
-                    
-                    showMessage('success', result.message);
-                    
-                    // ẨN MAIN CONTENT và HIỂN THỊ FULL-SCREEN CONFIRMATION
-                    mainContent.classList.add('hidden');
-                    confirmationWrapper.classList.remove('hidden');
-                    confirmationWrapper.classList.add('flex'); // Hiển thị màn hình xác nhận
-
-                    // Cập nhật thống kê ngay lập tức (dù đang ở trang chúc mừng)
-                    fetchStats(); 
-                } else {
-                    // 4. Đăng ký thất bại (Trùng lặp, hết chỗ, hoặc form đóng)
-                    showMessage('error', result.details);
-                }
+                registrationScreen.classList.add('hidden');
+                successScreen.classList.remove('hidden');
 
             } catch (error) {
-                console.error("Lỗi gửi form đến GAS:", error);
-                showMessage('error', 'Lỗi kết nối. Vui lòng kiểm tra kết nối mạng hoặc Web App URL.');
+                console.error("Registration failed:", error);
+                overloadTip.classList.remove('hidden');
+                
+                let errorMessage = 'An unexpected error occurred.';
+                if (error.message.includes('System Overloaded')) {
+                    errorMessage = error.message + ' Please try again later.';
+                } else if (error.code === 'permission-denied') {
+                    errorMessage = 'Registration denied. Please contact the organizer.';
+                }
+                
+                generalError.innerHTML = `<b>Error:</b> ${errorMessage}`;
+                generalError.classList.remove('hidden');
             } finally {
-                toggleLoading(false);
+                submitButton.disabled = false;
+                submitButton.textContent = 'Register Ticket';
+                checkFormState();
             }
         });
-        
-        // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Lấy thống kê và trạng thái form ngay khi tải trang và mỗi 30 giây
-            fetchStats(); 
-            // Vẫn giữ interval 30s để cập nhật số liệu thống kê chung
-            setInterval(fetchStats, 30000); 
-        });
+
+        // Initialize Firebase will call window.setupListeners once auth is ready
+        if (typeof window.initFirebase === 'function') {
+            // Note: initFirebase is called in the first script tag
+            // If the environment does not define __firebase_config, we start the check immediately
+            if (!window.firebaseConfig || Object.keys(window.firebaseConfig).length === 0) {
+                 window.setupListeners(crypto.randomUUID());
+            }
+        } else {
+             // Fallback if the module imports fail (shouldn't happen)
+             loadingMessage.textContent = 'System Initialization Error.';
+        }
     </script>
 </body>
 </html>
