@@ -236,15 +236,14 @@
     <!-- JavaScript Logic -->
     <script>
         // --- CONFIGURATION ---
-        // Vui lòng đảm bảo URL Google Apps Script này là URL ĐÃ TRIỂN KHAI VÀ KHÔNG BỊ LỖI PHÂN QUYỀN (Deploy as Web App, Execute as me, Access: Anyone)
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbygtcsZgqjBYnhrTTsGuNWQ5iCu0AUFkZ0qBt4PSoCGW9wEixfWLJPLmDQFlUU6ZRMu/exec';
+        // !!! BƯỚC 1: THAY THẾ CHÍNH XÁC URL ĐÃ TRIỂN KHAI CỦA BẠN VÀO ĐÂY !!!
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx2viRyUGtBAKr2zi-gb7F50HGjVBIWwQIETMY9LbrT2AyMcVK3b4WeZZUbCCY9YePA/exec'; 
         const MAX_CAPACITY_PER_SESSION = 130;
         const MAX_RETRIES = 3;
         
-        // --- CẤU HÌNH QUAN TRỌNG: CHUYỂN THÀNH FALSE KHI SỬ DỤNG CHÍNH THỨC! ---
-        // IS_MOCKING_STATUS = true: Dùng thời gian giả lập (MOCK_START_TIME/MOCK_CLOSE_TIME) để kiểm tra trạng thái mở/đóng.
-        // IS_MOCKING_STATUS = false: Dùng thời gian Mở/Đóng (startTime/closeTime) trả về từ Google Apps Script thật.
-        const IS_MOCKING_STATUS = true; // <-- CHUYỂN THÀNH FALSE TRƯỚC KHI ĐƯA LÊN CHÍNH THỨC
+        // --- CẤU HÌNH QUAN TRỌNG: Đang ở chế độ chạy THẬT. ---
+        const IS_MOCKING_STATUS = false; 
+        
         // --- MOCK CONFIGURATION (CHỈ DÙNG KHI IS_MOCKING_STATUS = TRUE) ---
         const now = new Date();
         const MOCK_START_TIME = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 30, 0).getTime();
@@ -287,6 +286,11 @@
          */
         async function attemptFetch(url, options, retries = 0) {
             try {
+                // Kiểm tra nếu GAS_URL chưa được thay thế
+                if (url.includes('YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_URL_HERE')) {
+                    throw new Error("ERROR: The Google Apps Script URL has not been replaced. Please update the GAS_URL variable in the code.");
+                }
+                
                 const response = await fetch(url, options);
                 
                 if (response.ok || response.status < 500) {
@@ -299,11 +303,11 @@
                 console.error('Fetch attempt failed:', error.message);
                 if (retries < MAX_RETRIES) {
                     const delay = Math.pow(2, retries) * 1000 + (Math.random() * 500);
-                    // console.log(`Retrying in ${Math.round(delay / 1000)}s... (Attempt ${retries + 1}/${MAX_RETRIES})`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     return attemptFetch(url, options, retries + 1);
                 }
-                throw new Error('Connection failed after multiple retries. Please check your network or try again later.');
+                // Thông báo lỗi chung sau khi đã retry
+                throw new Error('Connection failed after multiple retries. Please check your network or verify the Google Apps Script URL and permissions.');
             }
         }
         
@@ -371,7 +375,6 @@
             
             // Xử lý trạng thái mới
             if (formStatus === 'NOT_OPEN') {
-                // ĐÃ BỎ DÒNG HIỂN THỊ THỜI GIAN MỞ CỤ THỂ
                 formOpenStatusEl.innerHTML = `
                     <span class="text-red-600 font-extrabold block mb-1">REGISTRATION IS NOT OPEN YET.</span>
                 `;
@@ -414,7 +417,7 @@
             let result;
 
             if (IS_MOCKING_STATUS) {
-                // --- MOCK LOGIC: Giả lập thời gian mở form là 11:30 AM hôm nay ---
+                // --- MOCK LOGIC: (DISABLED) ---
                 const currentTime = new Date().getTime();
                 let formStatus;
 
@@ -452,9 +455,10 @@
                     const response = await attemptFetch(url, { method: 'GET' });
                     result = await response.json();
                 } catch (error) {
-                    console.error(error);
+                    // Nếu gặp lỗi mạng/kết nối, hiển thị thông báo
+                    console.error("Lỗi khi fetch Stats:", error);
                     displayMessage(error.message, 'error');
-                    formOpenStatusEl.textContent = 'Network or server connection error.';
+                    formOpenStatusEl.textContent = 'Network or server connection error. Check console for details.';
                     return; // Thoát nếu lỗi
                 }
                 // --- END REAL LOGIC ---
@@ -504,8 +508,10 @@
                 });
 
             } else {
-                displayMessage(`Server Error: ${result.message}`, 'error');
-                formOpenStatusEl.textContent = 'Error loading form status.';
+                // Lỗi từ phản hồi của Server/GAS
+                const details = result.message || "Unknown error from Apps Script. Check its logs.";
+                displayMessage(`Server Error: ${details}`, 'error');
+                formOpenStatusEl.textContent = 'Error loading form status. Server response failed.';
             }
 
         }
