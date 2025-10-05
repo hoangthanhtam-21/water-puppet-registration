@@ -4,636 +4,708 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Water Puppet Show: The Legend of Yết Kiêu</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Configure Tailwind for custom theme and Inter font -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        'primary-dark': '#047857', // Deep Emerald for main accents
-                        'primary-light': '#34d399', // Light green for buttons/highlights
-                        'accent': '#fbbf24', // Amber for statistics/warnings
-                        'background-deep': '#0f172a', // Slate 900 for a professional dark base
-                    }
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        
-        /* Custom styles for the backdrop image and overlay */
-        .backdrop-container {
-            /* Hình ảnh múa rối nước nền */
+        /* Custom Styles for Background Image and Overlay (Original Theme) */
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 1rem 0.5rem; 
+            
+            /* Background Image from user request (Water Puppet Stage) */
             background-image: url('https://livingnomads.com/wp-content/uploads/2017/03/30/hue-water-puppet-show-1068x801.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Overlay for better text readability */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.55); /* Dark overlay */
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 600px; 
+            width: 100%;
+        }
+        
+        /* Card appearance: slightly translucent white/grey */
+        .card {
+            background-color: rgba(255, 255, 255, 0.9); 
+            border-radius: 0.75rem; 
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Header Title Styling (ADJUSTED for full width and 2 lines) */
+        .header-title {
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+            color: #fff;
+            background-color: rgba(0, 50, 100, 0.7);
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            width: 100%; /* Ensure full width */
+            max-width: 100%; /* Override previous max-width: 400px; */
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+        .header-title h1 {
+            line-height: 1.1;
+        }
+
+        /* Primary Button (Green Accent) */
+        .button-primary {
+            background-color: #10b981; /* Emerald Green */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            transition: background-color 0.2s;
+        }
+        .button-primary:hover:not(:disabled) {
+            background-color: #059669;
+        }
+
+        /* Input Focus (Green Border) */
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-field:focus {
+            border-color: #10b981;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        
+        /* Session Item Styling */
+        .session-item {
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .session-item.selected {
+            border-color: #10b981; 
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+            background-color: #f0fdf4;
+        }
+        .sold-out {
+            background-color: #fef2f2; /* Light Red for sold out */
+            color: #991b1b;
+            cursor: not-allowed;
+            opacity: 0.7;
+            pointer-events: none;
+            border-color: #fca5a5;
+        }
+        .session-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }
+        .session-grid > div {
+            min-height: 80px; /* Ensure consistent height */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Status Header */
+        .status-header {
+            background-color: #eff6ff; 
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        /* NEW: Style for clickable session labels */
+        .session-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e5e7eb; /* default border */
+            border-radius: 0.5rem;
+            padding: 0.75rem 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%; /* Ensure it fills the space */
+            min-height: 50px;
+        }
+        .session-label:hover:not(.opacity-50) {
+            border-color: #a7f3d0;
+            background-color: #f7fee7;
+        }
+        .session-label input[type="radio"] {
+            display: none; /* Hide the default radio button */
+        }
+        .session-label input[type="radio"]:checked + .session-display {
+            border-color: #059669; /* Darker green border when checked */
+            background-color: #ecfdf5; /* Light green background when checked */
+            color: #047857; /* Darker text */
+            font-weight: 700;
+        }
+        .session-display {
+            /* This is the visual box that responds to the radio state */
+            border: 2px solid transparent; /* Used for visual checked state */
+            border-radius: 0.375rem;
+            width: 100%;
+            text-align: center;
+            padding: 0.25rem 0;
+            transition: all 0.2s;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        /* Custom styling for the text inside the box */
+        .session-time-text {
+            letter-spacing: 0.05em; /* tracking-wide equivalent */
+            font-size: 1rem; /* text-base equivalent */
+            font-weight: 600;
+        }
+        
+        /* --- Style for disabled (FULL) sessions with overlay --- */
+        .session-label.opacity-50 {
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+            cursor: not-allowed;
+            position: relative; /* Needed for absolute overlay */
+            overflow: hidden;
+        }
+        .session-label.opacity-50 .session-time-text {
+            color: #b91c1c;
+        }
+        /* NEW FULL overlay style */
+        .session-label.opacity-50::before {
+            content: 'FULL';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
-            padding: 2rem 1rem;
+            align-items: center;
+            font-size: 1.5rem; /* Larger text */
+            font-weight: 800;
+            color: rgba(220, 38, 38, 0.65); /* Red text, semi-transparent */
+            background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white background */
+            pointer-events: none; /* Allows clicks to pass through to the disabled input/label */
+            z-index: 10;
+            transform: rotate(-5deg); /* Slight rotation for emphasis */
+            border-radius: 0.5rem; /* Match the label border radius */
         }
 
-        /* Style for the main title */
-        .main-title {
-            /* ĐÃ CẬP NHẬT: Giảm kích thước linh hoạt (1.5rem đến 2.5rem) để tránh nhảy hàng trên mobile */
-            font-size: clamp(1.5rem, 4.5vw, 2.5rem); 
-            line-height: 1.1;
-            font-weight: 900;
-            color: #ea580c; /* Màu Đỏ Cam (Orange 700) */
+        /* Full-Screen Confirmation Page Overlay */
+        #confirmation-screen-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.75); /* Darker overlay */
+            z-index: 50; /* Above all other content */
+        }
+        #confirmation-screen {
+            background-color: white;
+            max-width: 450px;
+            width: 90%;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.5s ease-out;
+            text-align: center;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Custom input focus styling */
-        input:focus, select:focus {
-            border-color: #34d399 !important;
-            box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.5) !important;
+        /* Loading Spinner */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #10b981;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
-        /* Session Card Hover Effect */
-        .session-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(52, 211, 153, 0.3), 0 4px 6px -2px rgba(52, 211, 153, 0.05);
-        }
     </style>
 </head>
-<body class="font-sans bg-gray-900">
+<body>
 
-    <div class="backdrop-container">
-        <!-- Main Registration Container -->
-        <div id="registration-form-container" class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-10 bg-white/75 backdrop-blur-sm rounded-xl shadow-2xl transition-opacity duration-500 ease-in-out">
-            
-            <!-- === Column 1: Event Details & Header === -->
-            <div class="lg:col-span-1 space-y-6">
-                <div class="pb-4 border-b border-gray-200 text-center">
-                    <p class="text-gray-500 text-base font-medium uppercase tracking-widest mb-1">Exclusive Show</p>
-                    <h1 class="main-title uppercase text-center">
-                        Water Puppet Show:<br>The Legend of Yết Kiêu
-                    </h1>
-                    <p class="text-base sm:text-lg text-gray-700 mt-2 italic">
-                        The story of one of the five brilliant commanders of Hưng Đạo Vương.
-                    </p>
-                </div>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
 
-                <!-- Event Information Card -->
-                <div class="bg-white/70 border border-gray-200 p-5 rounded-lg shadow-md space-y-3">
-                    <h2 class="text-xl font-bold text-primary-dark flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Key Details
-                    </h2>
-                    <ul class="text-gray-700 text-base space-y-2">
-                        <li class="flex justify-between items-center border-b pb-1">
-                            <span class="font-semibold text-gray-600">Organizers:</span>
-                            <span class="font-bold text-primary-dark text-right">Nguyen Khuyen English Dept. & HCMC Center of Arts</span>
-                        </li>
-                        <li class="flex justify-between items-center border-b pb-1">
-                            <span class="font-semibold text-gray-600">Time:</span>
-                            <span class="font-bold text-red-600">October 18, 2025</span>
-                        </li>
-                        <li class="flex justify-between items-center border-b pb-1">
-                            <span class="font-semibold text-gray-600">Price:</span>
-                            <span class="font-bold text-primary-dark">80,000 VND/ticket</span>
-                        </li>
-                        <li class="pt-2">
-                            <span class="block font-semibold text-gray-600">Location:</span>
-                            <span class="text-base">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</span>
-                        </li>
-                    </ul>
-                </div>
+    <!-- Message Box (Standard) -->
+    <div id="message-box" role="alert" style="position: fixed; top: 1rem; right: 1rem; z-index: 1000; padding: 1rem; border-radius: 0.5rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: none; opacity: 0; transition: opacity 0.3s ease-in-out;"></div>
 
-                <!-- Notes & Deadline Card - ĐÃ CẬP NHẬT MÀU SẮC VÀ NỘI DUNG -->
-                <div class="bg-yellow-100 border border-red-500 p-4 rounded-lg shadow-md">
-                    <h3 class="text-xl font-bold text-red-800 mb-2 flex items-center">
-                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>
-                        Important Notice
-                    </h3>
-                    <ul class="list-disc list-inside space-y-1 text-gray-700 text-base">
-                        <!-- DÒNG MỚI ĐƯỢC BỔ SUNG -->
-                        <li>Each student can only register for <span class="font-bold">1 ticket</span>.</li>
-                        <li>Show is <span class="font-bold">exclusively for 10th-grade students</span> of Nguyen Khuyen High School.</li>
-                        <li><span class="font-bold">Deadline:</span> <span class="font-semibold">23:59 on Oct 7, 2025</span> or when <span class="font-semibold">130 seats/session</span> are filled.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- === Column 2 & 3: Registration Form and Status === -->
-            <div class="lg:col-span-2 space-y-6">
-                
-                <!-- NEW: Global Registration Status -->
-                <div id="reg-status-box" class="p-4 rounded-xl shadow-md text-center">
-                    <!-- Nội dung sẽ được cập nhật bởi JavaScript -->
-                    <h2 class="text-xl font-bold" id="reg-status-title">Loading Status...</h2>
-                    <p class="text-sm" id="reg-status-message">Checking current time...</p>
-                </div>
-
-
-                <!-- Session Availability Status - NOW REALTIME -->
-                <div class="bg-primary-dark/5 p-5 rounded-xl shadow-inner border border-primary-dark/10">
-                    <h2 class="text-2xl font-bold text-primary-dark mb-4">Session Availability Status</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        
-                        <!-- Status Card 1 -->
-                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                            <p class="text-base font-semibold text-gray-700">8:00 - 9:00</p>
-                            <div class="mt-2">
-                                <!-- Data is now loaded via fetchRealtimeStats() -->
-                                <p id="stats1-registered" class="text-lg font-extrabold text-blue-600">0</p> 
-                                <p class="text-sm text-gray-500">Registered</p>
-                            </div>
-                            <div class="mt-1 border-t pt-1">
-                                <p id="stats1-remaining" class="text-lg font-bold text-red-600">130</p>
-                                <p class="text-sm text-gray-500">Capacity / 130</p>
-                            </div>
-                        </div>
-
-                        <!-- Status Card 2 -->
-                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                            <p class="text-base font-semibold text-gray-700">13:00 - 14:00</p>
-                            <div class="mt-2">
-                                <p id="stats2-registered" class="text-lg font-extrabold text-blue-600">0</p>
-                                <p class="text-sm text-gray-500">Registered</p>
-                            </div>
-                            <div class="mt-1 border-t pt-1">
-                                <p id="stats2-remaining" class="text-lg font-bold text-red-600">130</p>
-                                <p class="text-sm text-gray-500">Capacity / 130</p>
-                            </div>
-                        </div>
-
-                        <!-- Status Card 3 -->
-                        <div class="p-3 bg-white/70 border border-gray-200 rounded-lg shadow-sm text-center">
-                            <p class="text-base font-semibold text-gray-700">16:00 - 17:00</p>
-                            <div class="mt-2">
-                                <p id="stats3-registered" class="text-lg font-extrabold text-blue-600">0</p>
-                                <p class="text-sm text-gray-500">Registered</p>
-                            </div>
-                            <div class="mt-1 border-t pt-1">
-                                <p id="stats3-remaining" class="text-lg font-bold text-red-600">130</p>
-                                <p class="text-sm text-gray-500">Capacity / 130</p>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-                
-                <!-- Registration Form -->
-                <form id="registration-form" class="space-y-6 p-6 bg-white/75 rounded-xl shadow-lg border border-gray-100">
-                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6H12a2 2 0 00-2 2v2.25l-2 2-2 2m0 0l-2 2m2-2l2 2m0 0l-2 2M6 18h12a2 2 0 002-2V8a2 2 0 00-2-2h-3.5L12 8.5 9.5 6H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Ticket Registration (Max 1)
-                    </h2>
-                    
-                    <div>
-                        <label for="fullName" class="block text-base font-medium text-gray-700 mb-1">Full Name</label>
-                        <input type="text" id="fullName" name="fullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150">
-                    </div>
-
-                    <div>
-                        <label for="class" class="block text-base font-medium text-gray-700 mb-1">Class</label>
-                        <input type="text" id="class" name="class" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-dark transition duration-150" placeholder="e.g., 10A1, 10B2">
-                    </div>
-
-                    <div class="space-y-3">
-                        <label class="block text-base font-medium text-gray-700">Select Session</label>
-                        
-                        <!-- Session Choices -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <!-- Session 1 -->
-                            <label for="session1" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                <input type="radio" id="session1" name="session" value="Session 1: 8:00-9:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                <span class="ml-3 text-base font-medium text-gray-800">8:00 - 9:00</span>
-                            </label>
-
-                            <!-- Session 2 -->
-                            <label for="session2" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                <input type="radio" id="session2" name="session" value="Session 2: 13:00-14:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                <span class="ml-3 text-base font-medium text-gray-800">13:00 - 14:00</span>
-                            </label>
-
-                            <!-- Session 3 -->
-                            <label for="session3" class="session-card p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center transition duration-200 hover:bg-primary-dark/5">
-                                <input type="radio" id="session3" name="session" value="Session 3: 16:00-17:00" required class="h-5 w-5 text-primary-dark focus:ring-primary-dark">
-                                <span class="ml-3 text-base font-medium text-gray-800">16:00 - 17:00</span>
-                            </label>
-                        </div>
-                        <!-- Đã di chuyển thông báo lỗi xuống dưới form để dễ nhìn hơn -->
-                        <p id="error-message" class="text-red-500 text-center font-medium p-2 bg-red-100 border border-red-400 rounded-lg hidden">An error occurred. Please try again later.</p>
-                    </div>
-                    
-                    <button type="submit" id="submit-button" class="w-full bg-primary-dark text-white py-3 px-6 rounded-lg font-bold text-xl shadow-xl hover:bg-green-800 transition duration-300 transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                        <span id="submit-text">Confirm Registration</span>
-                        <svg id="loading-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </button>
-                </form>
-            </div>
-        </div>
+    <div class="container" id="main-content">
         
-        <!-- Success Message Container - Nền trắng đục -->
-        <div id="success-container" class="hidden max-w-xl mx-auto p-8 md:p-12 bg-white rounded-xl shadow-2xl text-center transition-opacity duration-500 ease-in-out">
-            <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
-                 onerror="this.onerror=null; this.src='https://placehold.co/400x300/34D399/047857?text=Registration+Success!'" 
-                 alt="Joyful celebration image" class="mx-auto w-full max-w-xs h-auto rounded-xl shadow-lg mb-6">
-            
-            <h2 class="text-4xl font-extrabold text-primary-dark mb-3">Congratulations!</h2>
-            <p class="text-3xl text-gray-800 mb-6">Your water puppet show ticket registration has been successful!</p>
-            
-            <!-- Cấu trúc mới hiển thị thông tin chi tiết -->
-            <div class="bg-primary-dark/10 p-4 rounded-lg inline-block mb-6 border-l-4 border-primary-dark text-left w-full max-w-sm mx-auto">
-                <p class="text-lg font-bold text-primary-dark mb-2">Đăng ký thành công cho:</p>
-                <div class="space-y-1">
-                    <p class="text-gray-700"><span class="font-semibold text-gray-800">Họ tên:</span> <span id="successful-name" class="font-bold"></span></p>
-                    <p class="text-gray-700"><span class="font-semibold text-gray-800">Lớp:</span> <span id="successful-class" class="font-bold"></span></p>
-                    <p class="text-gray-700 border-t pt-2 mt-2"><span class="font-semibold text-gray-800">Suất diễn:</span> <span id="successful-session" class="font-bold text-red-600"></span></p>
-                </div>
-            </div>
-
-            <!-- Đã cập nhật nội dung hướng dẫn -->
-            <p class="text-md text-gray-600">
-                Vui lòng đợi thông báo danh sách cuối cùng và chuẩn bị tiền thanh toán (<span class="font-bold">80,000 VND/vé</span>).
+        <!-- HEADER TITLE SECTION -->
+        <div class="header-title text-center mx-auto">
+            <p class="text-xs font-semibold uppercase text-red-300 tracking-wider mb-1">EXCLUSIVE SHOW</p>
+            <h1 class="text-4xl font-black tracking-tight text-yellow-500">
+                WATER PUPPET SHOW: <br>THE LEGEND OF YẾT KIÊU
+            </h1>
+            <p class="text-sm font-medium text-gray-200 mt-1">
+                The story of one of the five brilliant commanders of Hưng Đạo Vương.
             </p>
         </div>
+
+        <!-- KEY DETAILS SECTION -->
+        <div class="card space-y-3">
+            <h2 class="text-lg font-bold text-gray-800 flex items-center mb-3">
+                <span class="text-green-600 mr-2">✅</span> Key Details
+            </h2>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div class="font-bold text-gray-700">Organizers:</div>
+                <div class="text-right">Nguyen Khuyen English Dept. & HCMC Center of Arts</div>
+                
+                <div class="font-bold text-gray-700">Time:</div>
+                <div class="text-right text-red-600 font-bold">October 18, 2025</div>
+                
+                <div class="font-bold text-gray-700">Price:</div>
+                <div class="text-right text-green-600 font-bold">80,000 VND/ticket</div>
+                
+                <div class="font-bold text-gray-700">Location:</div>
+                <div class="text-right text-sm text-gray-600">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</div>
+            </div>
+        </div>
+
+        <!-- IMPORTANT NOTICE SECTION -->
+        <div class="card bg-red-50 border-l-4 border-red-500">
+            <h3 class="text-lg font-bold text-red-700 flex items-center mb-2">
+                <span class="text-xl mr-2">❗️</span> Important Notice
+            </h3>
+            <ul class="text-sm text-gray-700 list-disc pl-5 space-y-2">
+                <li>Each student can only register for <strong>1 ticket</strong>.</li>
+                <li>Show is exclusively for <strong>10th-grade students</strong> of Nguyen Khuyen High School.</li>
+                <li>Deadline: <strong>23:59 on Oct 7, 2025</strong> or when <strong>130 seats/session</strong> are filled.</li>
+            </ul>
+        </div>
+        
+        <!-- REGISTRATION STATUS -->
+        <div class="card p-0 overflow-hidden">
+            <div id="registration-status-box" class="status-header p-4 text-center rounded-t-lg">
+                <p class="text-lg font-extrabold" id="status-message">LOADING REGISTRATION STATUS...</p>
+                <p class="text-sm font-normal mt-1" id="countdown-timer">Checking form availability...</p>
+            </div>
+        </div>
+
+        <!-- SESSION AVAILABILITY STATUS (Full session times in titles) -->
+        <div class="card">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                Session Availability Status
+            </h2>
+            <div id="stats-container" class="session-grid">
+                <p class="col-span-3 text-center text-gray-500 italic">Loading data...</p>
+            </div>
+        </div>
             
+        <!-- TICKET REGISTRATION FORM -->
+        <div class="card" id="registration-card"> 
+            <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center border-b pb-2">
+                <span class="text-green-600 mr-2">🎟️</span> Ticket Registration (Max 1)
+            </h2>
+
+            <form id="registration-form" class="space-y-5">
+                <!-- Student Info -->
+                <div>
+                    <label for="fullName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="fullName" name="fullName" required class="input-field" placeholder="E.g., Nguyen Van A">
+                </div>
+
+                <div>
+                    <label for="class" class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                    <input type="text" id="class" name="class" required class="input-field" pattern="^10[a-zA-Z0-9-]+" title="Class must start with '10'" placeholder="e.g., 10A1, 10B2">
+                    <p class="text-xs text-red-500 mt-1" id="class-error-message" style="display: none;">Validation Error: Only Grade 10 students are eligible (Class must start with '10').</p>
+                </div>
+
+                <!-- Session Selection (Radio Buttons - ADJUSTED FOR FRAME AND BOLDING) -->
+                <div class="pt-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Session</label>
+                    <div id="session-radio-buttons" class="flex justify-around items-center gap-2"> 
+                        
+                        <label class="session-label flex-1 text-gray-700 text-sm">
+                            <input type="radio" name="sessionRadio" value="Session 1: 8:00-9:00">
+                            <div class="session-display">
+                                <span class="session-time-text">8:00-9:00</span>
+                            </div>
+                        </label>
+                        
+                        <label class="session-label flex-1 text-gray-700 text-sm">
+                            <input type="radio" name="sessionRadio" value="Session 2: 13:00-14:00">
+                            <div class="session-display">
+                                <span class="session-time-text">13:00-14:00</span>
+                            </div>
+                        </label>
+                        
+                        <label class="session-label flex-1 text-gray-700 text-sm">
+                            <input type="radio" name="sessionRadio" value="Session 3: 16:00-17:00">
+                            <div class="session-display">
+                                <span class="session-time-text">16:00-17:00</span>
+                            </div>
+                        </label>
+                    </div>
+                    <input type="hidden" id="selectedSession" name="session" required>
+                </div>
+
+                <div class="pt-4">
+                    <!-- Button is disabled initially and enabled by JS/GAS check -->
+                    <button type="submit" id="submit-button" class="button-primary w-full text-lg hover:shadow-lg opacity-50 cursor-not-allowed" disabled>
+                        Loading Status...
+                    </button>
+                </div>
+            </form>
+        </div>
+        
     </div>
     
+    <!-- Full-Screen Confirmation Page Wrapper -->
+    <div id="confirmation-screen-wrapper" class="hidden">
+        <div id="confirmation-screen" class="shadow-2xl">
+            <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
+                    onerror="this.onerror=null;this.src='https://placehold.co/300x200/10b981/ffffff?text=SUCCESS!';" 
+                    alt="Cheerful confirmation image" 
+                    class="mx-auto h-32 w-auto object-cover rounded-lg shadow-xl mb-4">
+            
+            <h2 class="text-3xl font-bold text-gray-900 mt-4 text-emerald-600">CONGRATULATIONS!</h2>
+            <h3 class="text-xl font-semibold text-gray-700 mt-1">Registration Successful!</h3>
+            
+            <div class="mt-6 bg-emerald-50 p-4 rounded-lg shadow-inner text-left border-l-4 border-emerald-500">
+                <p class="text-lg font-semibold text-gray-800">Your Registration Details:</p>
+                <p class="mt-1 text-gray-700"><strong>Full Name:</strong> <span id="conf-fullName" class="font-medium"></span></p>
+                <p class="text-gray-700"><strong>Class:</strong> <span id="conf-class" class="font-medium"></span></p>
+                <p class="text-gray-700"><strong>Session:</strong> <span id="conf-session" class="font-medium"></span></p>
+                
+                <p class="text-sm mt-3 text-red-700 font-bold">
+                    Please wait for the official list and prepare 80,000 VND for payment.
+                </p>
+            </div>
+        </div>
+    </div>
+
+
     <script>
-        // *** ĐÃ CẬP NHẬT: Đây là URL Web App mới nhất của Google Apps Script bạn vừa cung cấp ***
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyVwiyqcGctnIFSKOB5FGsLnL_AyC80n1pECconF4j0Maa4IDYI9HmuCHQZlKWhPJdD/exec"; 
-        // ***********************************************************************************
-        const STATS_CAPACITY = 130; // Số lượng ghế tối đa cho mỗi suất
-        
-        // --- Cấu hình thời gian đăng ký (Sử dụng giờ Việt Nam) ---
-        // Bắt đầu: 11:30:00 ngày 6 tháng 10 năm 2025 (theo yêu cầu mới)
-        const REGISTRATION_START_DATE = new Date('2025/10/06 11:30:00'); 
-        // Kết thúc: 23:59:59 ngày 7 tháng 10 năm 2025
-        const REGISTRATION_END_DATE = new Date('2025/10/07 23:59:59'); 
-        // -------------------------------------------------------------
+        // !! BƯỚC QUAN TRỌNG: ĐÃ THAY THẾ BẰNG WEB APP URL CỦA BẠN !!
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyldcUpm9MNMUjGN-HptpFj4LevsSuRhUNBVV3ZkNvIRc3eZlU5IGhnfBDNn7ToDMOs/exec'; 
 
+        // Configuration (MUST match GAS settings)
+        const SESSION_NAMES = ["Session 1: 8:00-9:00", "Session 2: 13:00-14:00", "Session 3: 16:00-17:00"];
+        
+        // DOM Elements
         const form = document.getElementById('registration-form');
+        const mainContent = document.getElementById('main-content');
+        const statsContainer = document.getElementById('stats-container');
+        const selectedSessionInput = document.getElementById('selectedSession');
+        const sessionRadioButtons = document.getElementById('session-radio-buttons');
+        const statusMessage = document.getElementById('status-message');
+        const countdownTimer = document.getElementById('countdown-timer');
         const submitButton = document.getElementById('submit-button');
-        const submitText = document.getElementById('submit-text');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const errorMessage = document.getElementById('error-message');
-        const formContainer = document.getElementById('registration-form-container');
-        const successContainer = document.getElementById('success-container');
-        const formInputs = form ? Array.from(form.elements).filter(el => el.type !== 'submit') : [];
+        const classInput = document.getElementById('class');
+        const classErrorMessage = document.getElementById('class-error-message');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const messageBox = document.getElementById('message-box');
+        const confirmationWrapper = document.getElementById('confirmation-screen-wrapper');
+        const statusHeaderBox = document.getElementById('registration-status-box');
 
-        /**
-         * Ẩn thông báo lỗi.
-         */
-        function hideError() {
-            errorMessage.classList.add('hidden');
-        }
+        let maxCapacity = 130;
+        let formOpenTime = null;
 
-        /**
-         * Hiển thị thông báo lỗi trên giao diện.
-         * @param {string} message 
-         */
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.classList.remove('hidden');
-        }
+        // --- UTILITY FUNCTIONS ---
 
-        /**
-         * Chuyển sang trang thông báo thành công và ngăn quay lại form.
-         * @param {string} fullName Tên của học sinh
-         * @param {string} className Lớp của học sinh
-         * @param {string} sessionName Suất diễn đã chọn
-         */
-        function showSuccess(fullName, className, sessionName) {
-            // CẬP NHẬT: Hiển thị Tên, Lớp và Suất diễn
-            document.getElementById('successful-name').textContent = fullName;
-            document.getElementById('successful-class').textContent = className;
-            document.getElementById('successful-session').textContent = sessionName;
-            
-            // Ngăn học sinh dùng nút Back để quay lại form
-            window.history.pushState({ success: true }, '', location.href);
-            window.history.replaceState(null, '', location.href); 
-            
-            formContainer.style.opacity = '0';
+        function showMessage(type, message) {
+            messageBox.textContent = message;
+            messageBox.className = ''; 
+            messageBox.classList.add(type, 'text-white');
+            if (type === 'success') messageBox.style.backgroundColor = '#10b981';
+            if (type === 'error') messageBox.style.backgroundColor = '#ef4444';
+
+            messageBox.style.opacity = 1;
+            messageBox.style.display = 'block';
+
             setTimeout(() => {
-                formContainer.classList.add('hidden');
-                successContainer.classList.remove('hidden');
-                successContainer.style.opacity = '1';
-            }, 500); 
+                messageBox.style.opacity = 0;
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, 300);
+            }, 5000);
         }
-        
+
+        function toggleLoading(show) {
+            loadingOverlay.style.display = show ? 'flex' : 'none';
+        }
+
         /**
-         * Bật hoặc tắt trạng thái tương tác của form và input.
-         * @param {boolean} enable - True để bật, False để tắt.
+         * Chuyển đổi đối tượng JS thành chuỗi query URL.
+         * @param {object} params - Tham số.
+         * @returns {string} Chuỗi query.
          */
-        function toggleFormInteraction(enable) {
-            if (!submitButton) return;
+        function encodeData(params) {
+            return Object.keys(params)
+                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
+                .join('&');
+        }
 
-            // Vô hiệu hóa/Kích hoạt input
-            formInputs.forEach(input => input.disabled = !enable);
-
-            // Xử lý nút Submit
-            if (!enable) {
-                submitButton.disabled = true;
-                submitButton.textContent = 'Registration Closed';
-            } else {
-                // Chỉ kích hoạt nút nếu nó không ở trạng thái "Đang xử lý" (Loading)
-                if (loadingSpinner.classList.contains('hidden')) {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Confirm Registration';
-                }
+        /**
+         * Lấy dữ liệu từ Google Apps Script (Sử dụng doGet).
+         */
+        async function fetchStats() {
+            if (GAS_WEB_APP_URL.includes('PASTE_YOUR_GAS_WEB_APP_URL_HERE')) {
+                console.error("VUI LÒNG THAY THẾ GAS_WEB_APP_URL BẰNG URL WEB APP CỦA BẠN.");
+                showMessage('error', 'Cảnh báo: Vui lòng dán Web App URL của bạn để kích hoạt chức năng.');
+                // Mô phỏng dữ liệu để hiển thị giao diện khi lỗi config
+                renderStats({ "Session 1: 8:00-9:00": 120, "Session 2: 13:00-14:00": 80, "Session 3: 16:00-17:00": 130 }, 130);
+                return;
             }
-        }
-        
-        /**
-         * Kiểm tra và cập nhật trạng thái mở/đóng của form dựa trên thời gian.
-         */
-        function checkRegistrationStatus() {
-            const now = new Date();
-            const start = REGISTRATION_START_DATE;
-            const end = REGISTRATION_END_DATE;
             
-            const statusTitle = document.getElementById('reg-status-title');
-            const statusMessage = document.getElementById('reg-status-message');
-            const statusBox = document.getElementById('reg-status-box');
-            
-            // Kiểm tra trạng thái
-            if (now < start) {
-                // Form chưa mở
-                toggleFormInteraction(false);
-                const timeRemaining = formatTimeRemaining(start.getTime() - now.getTime());
-                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-blue-100 border border-blue-400';
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, { method: 'GET' });
+                const result = await response.json();
                 
-                // ĐÃ CẬP NHẬT: text-2xl và text-lg cho mobile
-                statusTitle.className = 'text-2xl sm:text-3xl font-extrabold text-blue-800'; 
-                statusMessage.className = 'text-lg sm:text-xl text-blue-700';
+                if (result.success) {
+                    const data = result.data;
+                    maxCapacity = data.maxCapacity;
+                    formOpenTime = data.startTime;
 
-                statusTitle.textContent = 'REGISTRATION IS NOT OPEN YET';
-                statusMessage.innerHTML = `Form will open on <span class="font-bold">${start.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${start.toLocaleDateString('vi-VN')}</span>. Remaining: <span class="font-bold">${timeRemaining}</span>`;
-            
-            } else if (now > end) {
-                // Form đã đóng
-                toggleFormInteraction(false);
-                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-red-100 border border-red-400';
-                
-                // ĐÃ CẬP NHẬT: text-2xl và text-lg cho mobile
-                statusTitle.className = 'text-2xl sm:text-3xl font-extrabold text-red-800';
-                statusMessage.className = 'text-lg sm:text-xl text-red-700';
-
-                statusTitle.textContent = 'REGISTRATION IS CLOSED';
-                statusMessage.textContent = 'The registration period ended on ' + end.toLocaleDateString('vi-VN');
-
-            } else {
-                // Form đang mở
-                toggleFormInteraction(true);
-                const timeRemaining = formatTimeRemaining(end.getTime() - now.getTime());
-                statusBox.className = 'p-4 rounded-xl shadow-md text-center bg-green-100 border border-green-400';
-                
-                // ĐÃ CẬP NHẬT: text-2xl và text-lg cho mobile
-                statusTitle.className = 'text-2xl sm:text-3xl font-extrabold text-green-800';
-                statusMessage.className = 'text-lg sm:text-xl text-green-700';
-
-                statusTitle.textContent = 'REGISTRATION IS OPEN NOW!';
-                statusMessage.innerHTML = `Deadline remaining: <span class="font-bold">${timeRemaining}</span>`;
-            }
-        }
-
-        /**
-         * Định dạng thời gian còn lại (milliseconds) thành chuỗi dễ đọc.
-         */
-        function formatTimeRemaining(ms) {
-            const totalSeconds = Math.floor(ms / 1000);
-            const days = Math.floor(totalSeconds / (3600 * 24));
-            const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            
-            if (days > 0) return `${days} days, ${hours} hours`;
-            if (hours > 0) return `${hours} hours, ${minutes} minutes`;
-            if (minutes > 0) return `${minutes} minutes, ${seconds} seconds`;
-            return `${seconds} seconds`;
-        }
-
-        /**
-         * Cập nhật giao diện thống kê và vô hiệu hóa suất chiếu đã đầy.
-         * @param {Array<Object>} statsData - Dữ liệu thống kê từ Google Script.
-         */
-        function updateStatsDisplay(statsData) {
-            const sessions = [
-                { id: 'session1', statsId: 'stats1', name: 'Session 1' },
-                { id: 'session2', statsId: 'stats2', name: 'Session 2' },
-                { id: 'session3', statsId: 'stats3', name: 'Session 3' }
-            ];
-
-            sessions.forEach(sessionInfo => {
-                const sData = statsData.find(s => s.session.includes(sessionInfo.name));
-                const registeredEl = document.getElementById(`${sessionInfo.statsId}-registered`);
-                const remainingEl = document.getElementById(`${sessionInfo.statsId}-remaining`);
-                const radioEl = document.getElementById(sessionInfo.id);
-                const labelEl = radioEl ? radioEl.closest('label') : null;
-
-                if (!sData || !registeredEl || !remainingEl || !radioEl || !labelEl) return;
-
-                const registered = sData.registered || 0;
-                const remaining = STATS_CAPACITY - registered;
-                
-                registeredEl.textContent = registered;
-                remainingEl.textContent = remaining;
-                
-                // Kiểm tra giới hạn 130 ghế và vô hiệu hóa nếu đầy
-                if (remaining <= 0) {
-                    remainingEl.classList.remove('text-red-600');
-                    remainingEl.classList.add('text-gray-400');
-                    remainingEl.textContent = 'FULL';
-                    
-                    radioEl.disabled = true;
-                    labelEl.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-200');
-                    labelEl.classList.remove('hover:bg-primary-dark/5');
-                    radioEl.checked = false; // Bỏ chọn nếu nó đã đầy
+                    renderStats(data.stats, data.maxCapacity);
+                    checkRegistrationStatus(data.formStatus, data.startTime, data.endTime);
                 } else {
-                     // Đảm bảo trạng thái trở lại bình thường nếu có sự thay đổi (ví dụ: đăng ký bị xóa khỏi sheet)
-                    radioEl.disabled = false;
-                    labelEl.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-200');
-                    labelEl.classList.add('hover:bg-primary-dark/5');
-                    remainingEl.classList.add('text-red-600');
-                    remainingEl.classList.remove('text-gray-400');
-                    remainingEl.textContent = remaining;
+                    showMessage('error', `Lỗi tải thống kê: ${result.details}`);
+                }
+            } catch (error) {
+                console.error("Lỗi khi kết nối với GAS:", error);
+                showMessage('error', 'Không thể kết nối với hệ thống thống kê. Vui lòng kiểm tra lại URL.');
+            }
+        }
+
+        /**
+         * Hiển thị số liệu thống kê và cập nhật trạng thái các nút radio.
+         */
+        function renderStats(stats, capacity) {
+            let html = '';
+            let isAnyFull = false;
+            
+            SESSION_NAMES.forEach(session => {
+                const registered = stats[session] || 0;
+                const remaining = Math.max(0, capacity - registered);
+                const isFull = remaining === 0;
+                
+                if (isFull) isAnyFull = true;
+
+                // Colors based on availability
+                const bgColor = isFull ? 'bg-red-100' : 'bg-gray-100';
+                const textColor = isFull ? 'text-red-700' : 'text-gray-700';
+                const numberColor = isFull ? 'text-red-600' : 'text-green-600';
+                const sessionTime = session.split(': ')[1].trim(); // Get the time part only
+
+                html += `
+                    <div class="p-3 rounded-lg ${bgColor} text-sm shadow-sm">
+                        <p class="font-bold text-base text-gray-800">${sessionTime}</p> 
+                        <p class="text-xs ${textColor} mt-1">
+                            <span class="font-bold ${numberColor}">${registered}</span> Registered
+                        </p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Capacity / <span class="font-bold text-red-600">${capacity}</span>
+                        </p>
+                    </div>
+                `;
+                
+                // Cập nhật trạng thái radio button trên form
+                const radio = sessionRadioButtons.querySelector(`input[value="${session}"]`);
+                if (radio) {
+                    radio.disabled = isFull;
+                    const parentLabel = radio.closest('.session-label');
+                    if (parentLabel) {
+                        parentLabel.classList.toggle('opacity-50', isFull); 
+                        parentLabel.classList.toggle('cursor-not-allowed', isFull);
+                        
+                        // Nếu suất đã đầy, hủy chọn nếu học sinh đã chọn trước đó
+                        if (isFull && radio.checked) {
+                            radio.checked = false;
+                            selectedSessionInput.value = '';
+                        }
+                    }
                 }
             });
+
+            statsContainer.innerHTML = html;
         }
 
-
         /**
-         * Lấy dữ liệu thống kê số lượng đăng ký theo thời gian thực từ Google Apps Script (doGet).
+         * Kiểm tra và cập nhật trạng thái mở/đóng của form.
          */
-        async function fetchRealtimeStats() {
-            // Sử dụng GET cho việc lấy dữ liệu
-            const statsUrl = `${GAS_WEB_APP_URL}?action=getStats`;
+        function checkRegistrationStatus(status, startTimestamp, endTimestamp) {
+            const now = new Date().getTime();
+            const start = new Date(startTimestamp);
+            const end = new Date(endTimestamp);
             
-            try {
-                const response = await fetch(statsUrl, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const resultText = await response.text();
-                let result;
-
-                try {
-                    result = JSON.parse(resultText);
-                } catch (e) {
-                    console.error("Lỗi Parsing JSON (Stats). Vui lòng kiểm tra hàm doGet() trong Google Script.", resultText);
-                    return;
-                }
-
-                if (result.status === 'success' && result.stats) {
-                    updateStatsDisplay(result.stats);
-                } else {
-                    console.error("Lỗi khi lấy thống kê:", result.message || "Phản hồi thống kê không hợp lệ.");
-                }
-
-            } catch (error) {
-                console.error("Lỗi mạng khi lấy thống kê:", error);
-            }
-        }
-
-
-        /**
-         * Xử lý gửi form để gửi dữ liệu đến Google Apps Script.
-         * @param {Event} e 
-         */
-        async function handleSubmit(e) {
-            e.preventDefault();
-            hideError();
-            
-            // Kiếm tra Client-side: Ngăn chặn gửi nếu form không mở
-            // CHÚ Ý: CHECK NÀY CHỈ LÀ THỨ CẤP. CHECK SERVER MỚI LÀ BẢO MẬT
-            if (submitButton.disabled) {
-                showError("Đăng ký chưa mở. Vui lòng đợi đến đúng 11:30 ngày 06/10.");
-                return;
-            }
+            // Format ngày giờ hiển thị
+            const formatTime = (date) => new Date(date).toLocaleString('vi-VN', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+            }).replace(',', '');
 
             submitButton.disabled = true;
-            submitText.textContent = 'Đang xử lý...';
-            loadingSpinner.classList.remove('hidden');
+            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            if (status === "OPEN") {
+                statusMessage.textContent = "REGISTRATION IS OPEN NOW";
+                countdownTimer.classList.remove('hidden');
+                countdownTimer.textContent = `Form closes at: ${formatTime(end)}`;
+                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-green-100 text-green-700';
+                
+                // Chỉ kích hoạt nút submit khi form đang mở
+                submitButton.disabled = false;
+                submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                submitButton.textContent = "Submit Registration";
+            } else if (status === "NOT_OPEN") {
+                statusMessage.textContent = "REGISTRATION IS NOT OPEN YET";
+                countdownTimer.classList.remove('hidden');
+                
+                // Tính toán thời gian còn lại
+                const diff = startTimestamp - now;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                
+                countdownTimer.textContent = `Form will open on ${formatTime(start)}. Remaining: ${days} days, ${hours} hours.`;
+                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-yellow-100 text-yellow-700';
+                submitButton.textContent = "Registration Not Open Yet";
+
+            } else { // CLOSED
+                statusMessage.textContent = "REGISTRATION HAS ENDED";
+                countdownTimer.classList.add('hidden');
+                statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-red-100 text-red-700';
+                submitButton.textContent = "Registration Closed";
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+
+        // Update hidden input when a radio button is selected
+        sessionRadioButtons.addEventListener('change', (e) => {
+            if (e.target.name === 'sessionRadio' && !e.target.disabled) {
+                selectedSessionInput.value = e.target.value;
+            }
+        });
+
+        // Form Submission Handler (Sử dụng doPost)
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // 1. Client-side validation
+            if (!classInput.value.match(/^10[a-zA-Z0-9-]+/)) {
+                classErrorMessage.style.display = 'block';
+                showMessage('error', 'Validation Error: Only Grade 10 students are eligible (Class must start with "10").');
+                return;
+            } else {
+                classErrorMessage.style.display = 'none';
+            }
             
-            const fullName = document.getElementById('fullName').value.trim();
-            const className = document.getElementById('class').value.trim();
-            const selectedSession = form.querySelector('input[name="session"]:checked');
-            
-            if (!fullName || !className || !selectedSession) {
-                showError("Vui lòng điền đầy đủ thông tin và chọn suất diễn.");
-                resetButton();
+            if (!selectedSessionInput.value) {
+                showMessage('error', 'Please select a session before submitting.');
                 return;
             }
-            
-            const sessionName = selectedSession.value;
 
-            // Dữ liệu được gửi đi dưới dạng form-urlencoded (POST)
-            const data = {
-                fullName: fullName,
-                class: className,
-                session: sessionName,
-                action: 'register'
+            toggleLoading(true);
+
+            // 2. Prepare data for POST request
+            const formData = {
+                fullName: document.getElementById('fullName').value.trim(),
+                class: document.getElementById('class').value.trim(),
+                session: selectedSessionInput.value,
             };
-            
-            const urlSearchParams = new URLSearchParams();
-            for (const key in data) {
-                urlSearchParams.append(key, data[key]);
-            }
 
             try {
+                // Post data to GAS (Web App URL)
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
-                    mode: 'cors', 
+                    // Đảm bảo dữ liệu được gửi dưới dạng x-www-form-urlencoded
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded', 
+                        'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: urlSearchParams.toString()
+                    body: encodeData(formData)
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const result = await response.json();
 
-                const resultText = await response.text();
-                let result = {};
+                if (result.success) {
+                    // 3. Đăng ký thành công: Chuyển sang trang chúc mừng
+                    const registeredData = result.data;
+                    document.getElementById('conf-fullName').textContent = registeredData.fullName; // Tên đã được Title Case từ GAS
+                    document.getElementById('conf-class').textContent = registeredData.className;     // Lớp đã được viết hoa từ GAS
+                    document.getElementById('conf-session').textContent = registeredData.selectedSession;
+                    
+                    showMessage('success', result.message);
+                    
+                    // ẨN MAIN CONTENT và HIỂN THỊ FULL-SCREEN CONFIRMATION
+                    mainContent.classList.add('hidden');
+                    confirmationWrapper.classList.remove('hidden');
 
-                if (!resultText.trim()) {
-                    console.log("GAS executed successfully but returned an empty response. Assuming success.");
-                    showSuccess(fullName, className, sessionName); 
-                    fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
-                    return; 
-                }
-
-                try {
-                    result = JSON.parse(resultText);
-                } catch (e) {
-                    console.error("Lỗi Parsing JSON. Phản hồi thô:", resultText);
-                    throw new SyntaxError(`Lỗi định dạng phản hồi (Không phải JSON). Vui lòng đảm bảo Google Script đã được triển khai và trả về JSON hợp lệ.`);
-                }
-                
-                if (result.status === 'success') {
-                    showSuccess(fullName, className, sessionName);
-                    fetchRealtimeStats(); // Cập nhật thống kê sau khi đăng ký thành công
-                } else if (result.status === 'error') {
-                    // Xử lý lỗi Trùng lặp, Hết ghế HOẶC LỖI THỜI GIAN từ GAS
-                    showError(result.message || "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.");
+                    // Cập nhật thống kê ngay lập tức (dù đang ở trang chúc mừng)
+                    fetchStats(); 
                 } else {
-                    showError("Lỗi phản hồi không xác định từ máy chủ Google.");
+                    // 4. Đăng ký thất bại (Trùng lặp, hết chỗ, hoặc form đóng)
+                    showMessage('error', result.details);
                 }
 
             } catch (error) {
-                console.error("Đăng ký thất bại:", error);
-                
-                if (error.message && error.message.includes('HTTP error')) {
-                     showError(`Lỗi kết nối máy chủ Google: ${error.message}. Vui lòng thử lại.`);
-                } else if (error instanceof SyntaxError) {
-                    showError(error.message);
-                } else {
-                    showError("Lỗi kết nối mạng chung. Vui lòng kiểm tra kết nối Internet.");
-                }
+                console.error("Lỗi gửi form đến GAS:", error);
+                showMessage('error', 'Lỗi kết nối. Vui lòng kiểm tra kết nối mạng hoặc Web App URL.');
+            } finally {
+                toggleLoading(false);
             }
-            
-            resetButton();
-        }
-
-        function resetButton() {
-            // Chỉ reset nút nếu form đang mở. Nếu form bị đóng bởi thời gian, không reset.
-            checkRegistrationStatus(); 
-            loadingSpinner.classList.add('hidden');
-        }
-
-        // --- Main execution ---
-        if (form) {
-            form.addEventListener('submit', handleSubmit);
-        }
-
-        // 1. Tải thống kê và kiểm tra trạng thái khi trang vừa mở
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchRealtimeStats();
-            checkRegistrationStatus();
-            
-            // 2. Cài đặt fetch định kỳ (mỗi 30 giây) để cập nhật thời gian thực
-            setInterval(fetchRealtimeStats, 30000); 
-            // 3. Cài đặt kiểm tra trạng thái định kỳ (mỗi giây) để cập nhật chính xác thời gian mở/đóng
-            setInterval(checkRegistrationStatus, 1000); 
         });
-
+        
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Lấy thống kê và trạng thái form ngay khi tải trang và mỗi 30 giây
+            fetchStats(); 
+            setInterval(fetchStats, 30000); 
+        });
     </script>
 </body>
 </html>
