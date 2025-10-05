@@ -219,12 +219,18 @@
             left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
+            /* BỎ display:flex CỐ ĐỊNH Ở ĐÂY để cho Tailwind's 'hidden' class hoạt động */
             justify-content: center;
             align-items: center;
             background-color: rgba(0, 0, 0, 0.75); /* Darker overlay */
             z-index: 50; /* Above all other content */
         }
+
+        /* Bổ sung: Đảm bảo khi không có lớp 'hidden', nó phải là flex */
+        #confirmation-screen-wrapper:not(.hidden) {
+            display: flex;
+        }
+        
         #confirmation-screen {
             background-color: white;
             max-width: 450px;
@@ -402,7 +408,8 @@
     </div>
     
     <!-- Full-Screen Confirmation Page Wrapper -->
-    <div id="confirmation-screen-wrapper" class="hidden">
+    <!-- ĐÃ THÊM class="hidden" VÀO TRẠNG THÁI KHỞI TẠO -->
+    <div id="confirmation-screen-wrapper" class="hidden"> 
         <div id="confirmation-screen" class="shadow-2xl">
             <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
                     onerror="this.onerror=null;this.src='https://placehold.co/300x200/10b981/ffffff?text=SUCCESS!';" 
@@ -450,7 +457,7 @@
         const statusHeaderBox = document.getElementById('registration-status-box');
 
         let maxCapacity = 130;
-        let formOpenTime = null;
+        let countdownInterval; // Biến lưu trữ ID của interval đếm ngược
 
         // --- UTILITY FUNCTIONS ---
 
@@ -486,6 +493,51 @@
                 .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
                 .join('&');
         }
+        
+        // Hàm định dạng số về 2 chữ số (ví dụ: 5 -> 05)
+        const pad = (n) => (n < 10 ? '0' + n : n);
+
+        /**
+         * Bắt đầu bộ đếm ngược thời gian mở form.
+         * @param {number} startTimestamp - Thời gian form sẽ mở (miligiây).
+         */
+        function startCountdown(startTimestamp) {
+            // Xóa bộ đếm cũ nếu có
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const diff = startTimestamp - now;
+
+                if (diff <= 0) {
+                    clearInterval(countdownInterval);
+                    statusMessage.textContent = "REGISTRATION IS OPENING NOW...";
+                    countdownTimer.textContent = "Refreshing status...";
+                    // Tự động tải lại trạng thái form khi hết giờ
+                    fetchStats(); 
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                let timeString = '';
+                if (days > 0) {
+                    timeString += `${days} days, `;
+                }
+                timeString += `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+
+                countdownTimer.textContent = `Time remaining until open: ${timeString}`;
+            };
+
+            // Chạy lần đầu tiên và sau đó mỗi giây
+            updateTimer();
+            countdownInterval = setInterval(updateTimer, 1000);
+        }
 
         /**
          * Lấy dữ liệu từ Google Apps Script (Sử dụng doGet).
@@ -506,7 +558,6 @@
                 if (result.success) {
                     const data = result.data;
                     maxCapacity = data.maxCapacity;
-                    formOpenTime = data.startTime;
 
                     renderStats(data.stats, data.maxCapacity);
                     checkRegistrationStatus(data.formStatus, data.startTime, data.endTime);
@@ -524,15 +575,12 @@
          */
         function renderStats(stats, capacity) {
             let html = '';
-            let isAnyFull = false;
             
             SESSION_NAMES.forEach(session => {
                 const registered = stats[session] || 0;
                 const remaining = Math.max(0, capacity - registered);
                 const isFull = remaining === 0;
                 
-                if (isFull) isAnyFull = true;
-
                 // Colors based on availability
                 const bgColor = isFull ? 'bg-red-100' : 'bg-gray-100';
                 const textColor = isFull ? 'text-red-700' : 'text-gray-700';
@@ -576,9 +624,10 @@
          * Kiểm tra và cập nhật trạng thái mở/đóng của form.
          */
         function checkRegistrationStatus(status, startTimestamp, endTimestamp) {
-            const now = new Date().getTime();
-            const start = new Date(startTimestamp);
-            const end = new Date(endTimestamp);
+            // Đảm bảo dừng mọi bộ đếm cũ
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
             
             // Format ngày giờ hiển thị
             const formatTime = (date) => new Date(date).toLocaleString('vi-VN', { 
@@ -598,7 +647,7 @@
                 countdownTimer.textContent = `Form closes at: ${formatTime(end)}`;
                 statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-green-100 text-green-700';
                 
-                // Chỉ kích hoạt nút submit khi form đang mở
+                // Kích hoạt nút submit
                 submitButton.disabled = false;
                 submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
                 submitButton.textContent = "Submit Registration";
@@ -606,12 +655,9 @@
                 statusMessage.textContent = "REGISTRATION IS NOT OPEN YET";
                 countdownTimer.classList.remove('hidden');
                 
-                // Tính toán thời gian còn lại
-                const diff = startTimestamp - now;
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                // Kích hoạt bộ đếm ngược
+                startCountdown(startTimestamp);
                 
-                countdownTimer.textContent = `Form will open on ${formatTime(start)}. Remaining: ${days} days, ${hours} hours.`;
                 statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-yellow-100 text-yellow-700';
                 submitButton.textContent = "Registration Not Open Yet";
 
@@ -684,6 +730,7 @@
                     // ẨN MAIN CONTENT và HIỂN THỊ FULL-SCREEN CONFIRMATION
                     mainContent.classList.add('hidden');
                     confirmationWrapper.classList.remove('hidden');
+                    confirmationWrapper.classList.add('flex'); // Hiển thị màn hình xác nhận
 
                     // Cập nhật thống kê ngay lập tức (dù đang ở trang chúc mừng)
                     fetchStats(); 
@@ -704,6 +751,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Lấy thống kê và trạng thái form ngay khi tải trang và mỗi 30 giây
             fetchStats(); 
+            // Vẫn giữ interval 30s để cập nhật số liệu thống kê chung
             setInterval(fetchStats, 30000); 
         });
     </script>
