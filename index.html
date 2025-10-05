@@ -84,15 +84,14 @@
         .capitalize-name {
             text-transform: capitalize;
         }
-        /* Đã giảm kích thước tối thiểu cho đếm ngược */
+        /* Đồng hồ đếm ngược được cập nhật kích thước để hiển thị hh:mm:ss */
         .countdown-timer {
-            font-size: 1rem; 
+            font-size: 1.1rem; 
             font-weight: 900;
             color: #ef4444; /* Red color for urgency */
             text-shadow: 0 0 5px rgba(239, 68, 68, 0.4);
             letter-spacing: 0.5px; 
             margin-top: 0.5rem;
-            /* Đảm bảo không bị xuống hàng */
             white-space: nowrap; 
             overflow: hidden;
             text-overflow: ellipsis;
@@ -109,7 +108,7 @@
                 font-size: 2rem;
             }
             .countdown-timer {
-                font-size: 0.875rem; /* Tương đương text-sm cho mobile */
+                font-size: 0.95rem; /* Tương đương text-sm cho mobile */
                 letter-spacing: 0.2px;
             }
         }
@@ -236,8 +235,8 @@
     <!-- JavaScript Logic -->
     <script>
         // --- CONFIGURATION ---
-        // !!! BƯỚC 1: THAY THẾ CHÍNH XÁC URL ĐÃ TRIỂN KHAI CỦA BẠN VÀO ĐÂY !!!
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxMpNAO7w83T7cUc2Kxd3oAVZsWPtNgc34FIPkGaldqp73SAt5NhlGnOsx7qGAmEaiy/exec'; 
+        // !!! BƯỚC 1: THAY THẾ CHÍNH XÁC URL ĐÃ TRIỂN KHAI MỚI VÀO ĐÂY !!!
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxzc-l9VwVls8UYGKkbTFXRuP_GQ3_IH8IVcexuRajk88MWzWVynoqTNKAZ8M-zzuKc/exec'; 
         const MAX_CAPACITY_PER_SESSION = 130;
         const MAX_RETRIES = 3;
         
@@ -288,7 +287,7 @@
             console.log(`[Fetch] Attempt ${retries + 1} for ${url.includes('getStats') ? 'stats' : 'registration'}.`);
             try {
                 // Kiểm tra nếu GAS_URL chưa được thay thế
-                if (url.includes('YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_URL_HERE')) {
+                if (url.includes('YOUR_NEW_DEPLOYED_GOOGLE_APPS_SCRIPT_URL_HERE')) {
                     throw new Error("ERROR: The Google Apps Script URL has not been replaced. Please update the GAS_URL variable in the code.");
                 }
                 
@@ -342,7 +341,7 @@
         }
 
         /**
-         * Cập nhật đồng hồ đếm ngược
+         * Cập nhật đồng hồ đếm ngược (Đã sửa để hiển thị hh:mm:ss)
          * @param {number} targetTime - Thời gian mục tiêu (milliseconds)
          */
         function updateCountdown(targetTime) {
@@ -359,11 +358,21 @@
             }
 
             const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const hoursTotal = Math.floor(distance / (1000 * 60 * 60)); // Tổng số giờ (bao gồm cả ngày)
+            const hours = hoursTotal % 24; // Số giờ lẻ
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            
-            // Định dạng dd:hh:mm
-            const countdownText = `Form opens in: ${String(days).padStart(2, '0')} days : ${String(hours).padStart(2, '0')} hours : ${String(minutes).padStart(2, '0')} minutes`;
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000); // Thêm giây
+
+            // Hiển thị chỉ Giờ:Phút:Giây (nếu còn dưới 24h), hoặc Ngày:Giờ:Phút nếu còn nhiều hơn.
+            let countdownText;
+            if (days > 0) {
+                 // Nếu còn nhiều hơn 1 ngày, hiển thị Ngày:Giờ:Phút
+                 countdownText = `Form opens in: ${days} days ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} hours`;
+            } else {
+                 // Chỉ còn dưới 1 ngày, hiển thị Giờ:Phút:Giây
+                 countdownText = `Opening in: ${String(hoursTotal).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+
             countdownTimerEl.textContent = countdownText;
             countdownTimerEl.classList.remove('hidden');
         }
@@ -391,9 +400,8 @@
                 
                 // Bắt đầu đếm ngược đến giờ mở
                 updateCountdown(startTime);
-                // Cập nhật đồng hồ mỗi 60 giây (chỉ hiển thị phút), trừ khi còn dưới 1 phút thì cập nhật mỗi giây
-                const intervalDuration = (startTime - new Date().getTime() < 60000) ? 1000 : 60000;
-                countdownInterval = setInterval(() => updateCountdown(startTime), intervalDuration); 
+                // Cập nhật đồng hồ mỗi 1 giây để hiển thị giây chính xác
+                countdownInterval = setInterval(() => updateCountdown(startTime), 1000); 
                 
             } else if (formStatus === 'CLOSED') {
                 formOpenStatusEl.innerHTML = `<span class="text-red-600 font-extrabold block">REGISTRATION CLOSED.</span> <span class="text-sm font-normal block">The deadline was ${formatTime(closeTime)} or all tickets were sold.</span>`;
