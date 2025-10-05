@@ -3,717 +3,601 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Puppet Show Ticket Registration</title>
-    <!-- Load Tailwind CSS -->
+    <title>Water Puppet Show Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Inter Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=100..900&display=swap" rel="stylesheet">
-    <!-- Load Firebase/Firestore -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, getDocs, addDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // =======================================================================
-        //  CẤU HÌNH FIREBASE KHI CHẠY TRÊN GITHUB HOẶC MÁY CỤC BỘ (LOCAL MODE)
-        //  Nếu bạn muốn bật chức năng đếm vé và kiểm tra trùng lặp, bạn phải thay
-        //  thế các giá trị PLACEHOLDER_FIREBASE_CONFIG dưới đây bằng cấu hình 
-        //  dự án Firebase của bạn.
-        // =======================================================================
-        const PLACEHOLDER_FIREBASE_CONFIG = {
-            apiKey: "YOUR_API_KEY_HERE_FROM_FIREBASE", 
-            authDomain: "your-project-id.firebaseapp.com",
-            projectId: "your-project-id",
-            storageBucket: "your-project-id.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        
-        let firebaseConfig = PLACEHOLDER_FIREBASE_CONFIG;
-        let USE_FIREBASE = false;
-
-        // Ưu tiên cấu hình từ môi trường Immersive nếu có
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-             try {
-                const envConfig = JSON.parse(__firebase_config);
-                if (Object.keys(envConfig).length > 0) {
-                    firebaseConfig = envConfig;
-                    USE_FIREBASE = true;
-                }
-             } catch (e) {
-                console.error("Failed to parse __firebase_config, using placeholder:", e);
-             }
-        }
-        
-        // Kiểm tra xem cấu hình tạm thời có bị để nguyên không
-        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE_FROM_FIREBASE") {
-            USE_FIREBASE = true;
-        }
-
-
-        let app, db, auth;
-        let currentUserId = null;
-        let isAuthReady = false;
-
-        // Set up Firebase and Auth Listener
-        window.initFirebase = async () => {
-            if (!USE_FIREBASE) {
-                console.warn("Firebase config missing. Running in local mode without real-time counting/duplicate checks. Only Google Sheet logging will be attempted.");
-                window.setupListeners(crypto.randomUUID()); // Load UI anyway
-                // Update loading message to reflect local mode
-                document.getElementById('loading-message').innerHTML = 'Đang chạy ở **Chế độ Ngoại tuyến** (Không có đếm vé thời gian thực). Đang kiểm tra giới hạn thời gian...';
-                document.getElementById('overload-tip').classList.remove('hidden');
-                document.getElementById('overload-tip').innerHTML = '⚠️ **Chế độ Ngoại tuyến:** Chức năng đếm vé và kiểm tra trùng lặp sẽ bị **tắt** vì thiếu cấu hình Firebase. Tuy nhiên, dữ liệu vẫn sẽ được cố gắng ghi vào Google Sheet.';
-                return;
-            }
-            
-            try {
-                // Set Firestore log level to Debug for visibility
-                setLogLevel('Debug');
-                
-                // Khởi tạo Firebase với cấu hình đã chọn
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                window.db = db; // Make DB available globally for the main script
-
-                // EXPOSED Firestore FUNCTIONS: Make collection, query, where, etc. available to the main script block
-                window.collection = collection;
-                window.query = query;
-                window.where = where;
-                window.getDocs = getDocs;
-                window.addDoc = addDoc;
-                window.onSnapshot = onSnapshot;
-
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        currentUserId = user.uid;
-                    } else {
-                        // Sign in anonymously if no custom token is provided
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    }
-                    if (user || !initialAuthToken) { // Ready when user is signed in or anonymous sign-in failed/skipped
-                        currentUserId = auth.currentUser?.uid || crypto.randomUUID();
-                        isAuthReady = true;
-                        window.setupListeners(currentUserId);
-                    }
-                });
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                // Thay đổi thông báo lỗi để chỉ rõ rằng đó là lỗi cấu hình
-                document.getElementById('loading-message').textContent = 'Error: Firebase configuration is missing or invalid. Check the config variables in the code.';
-                document.getElementById('overload-tip').classList.remove('hidden'); // Dùng luôn tip này để hướng dẫn
-                document.getElementById('overload-tip').innerHTML = '⚠️ **Lỗi Cấu hình:** Khi chạy trên GitHub/Local, bạn **PHẢI** tự điền `PLACEHOLDER_FIREBASE_CONFIG` bằng cấu hình Firebase của riêng bạn. Nếu không, ứng dụng sẽ không thể kết nối.';
-            }
-        };
-
-        // Utility function to retry Firestore operations with exponential backoff
-        window.retryWithBackoff = async (operation, maxRetries = 5, delay = 1000) => {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    return await operation();
-                } catch (error) {
-                    // 7 = 'PERMISSION_DENIED', 8 = 'RESOURCE_EXHAUSTED' (for rate limiting)
-                    if (error.code && (error.code === 'permission-denied' || error.code === 'resource-exceeded')) {
-                        console.warn(`Firestore operation failed (attempt ${i + 1}/${maxRetries}): ${error.message}. Retrying in ${delay / 1000}s...`);
-                        if (i < maxRetries - 1) {
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            delay *= 2; // Exponential backoff
-                        } else {
-                            throw new Error(`System Overloaded or Permission Denied: Could not complete registration after ${maxRetries} attempts. Please try again later.`);
-                        }
-                    } else {
-                        // Throw other errors immediately
-                        throw error;
-                    }
-                }
-            }
-        };
-        
-        window.initFirebase();
-    </script>
     <style>
-        :root {
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
             font-family: 'Inter', sans-serif;
-        }
-        .backdrop {
+            min-height: 100vh;
+            background-color: #f0f4f8;
+            /* Background Image visible */
             background-image: url('https://livingnomads.com/wp-content/uploads/2017/03/30/hue-water-puppet-show-1068x801.jpg');
             background-size: cover;
-            background-position: center;
             background-attachment: fixed;
-            position: relative;
+            background-position: center;
         }
-        .overlay {
-            background-color: rgba(0, 0, 0, 0.7); /* Dark overlay for better text contrast */
+        
+        .container-card {
+            /* Tăng chiều ngang form */
+            max-width: 570px; 
+            margin: 2rem auto; 
+            padding: 2.5rem; 
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly transparent white for readability */
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+            border: 3px solid #065f46; 
         }
-        .styled-title {
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        .title-large {
+            font-size: 2.5rem;
             line-height: 1.1;
         }
-        .counter-box {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        /* Custom styles for the message box */
+        .message-box {
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-width: 300px;
+            text-align: center;
+        }
+        .message-box.show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .message-box.success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .message-box.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        .radio-label {
+            transition: all 0.2s;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .radio-label:has(input:not([disabled]):hover) {
+            background-color: #f0fdf4;
+        }
+        .radio-label:has(input:checked) {
+            border-color: #059669;
+            background-color: #d1fae5;
+            box-shadow: 0 0 0 2px #34d399;
+        }
+        .submit-enabled {
+            background-color: #059669 !important;
+            box-shadow: 0 8px 15px rgba(5, 150, 105, 0.4);
+        }
+        .submit-enabled:hover {
+            background-color: #047857 !important;
+        }
+        .capitalize-name {
+            text-transform: capitalize;
+        }
+        /* Đã giảm kích thước tối thiểu cho đếm ngược */
+        .countdown-timer {
+            font-size: 1rem; 
+            font-weight: 900;
+            color: #ef4444; /* Red color for urgency */
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.4);
+            letter-spacing: 0.5px; 
+            margin-top: 0.5rem;
+            /* Đảm bảo không bị xuống hàng */
+            white-space: nowrap; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Ensure responsiveness on small screens */
+        @media (max-width: 640px) {
+            .container-card {
+                max-width: 95%;
+                margin: 1rem auto;
+                padding: 1.5rem;
+            }
+            .title-large {
+                font-size: 2rem;
+            }
+            .countdown-timer {
+                font-size: 0.875rem; /* Tương đương text-sm cho mobile */
+                letter-spacing: 0.2px;
+            }
         }
     </style>
 </head>
-<body class="backdrop min-h-screen">
-    <div class="overlay min-h-screen p-4 md:p-8 flex items-center justify-center">
+<body>
 
-        <!-- Main Container -->
-        <div id="app-container" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-500">
+    <!-- Message Box for Alerts -->
+    <div id="message-box" class="message-box"></div>
+
+    <!-- Main Registration Card -->
+    <div id="main-card-container" class="container-card">
+        
+        <!-- --- CONTENT SECTION (TO BE HIDDEN ON SUCCESS) --- -->
+        <div id="registration-content">
+            <!-- Title -->
+            <h1 class="title-large font-extrabold text-center text-gray-900 mb-2">
+                Water Puppet Show: <br><span class="text-emerald-600">Legend of Yết Kiêu</span>
+            </h1>
+            <p class="text-sm text-center text-gray-600 mb-6 italic">
+                The story of one of Hưng Đạo Vương's five most talented generals.
+            </p>
             
-            <!-- Loading/Time Check Screen -->
-            <div id="initial-check-screen" class="text-center py-20">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                <p id="loading-message" class="text-xl text-gray-700">Checking system status and time limit...</p>
-                <p class="text-sm text-gray-500 mt-2">Current User ID: <span id="user-id-display" class="font-mono text-xs">Loading...</span></p>
-                <p id="overload-tip" class="text-red-500 font-semibold mt-4 hidden">
-                    ⚠️ System Overload Tip: If you face frequent 'System Overloaded' errors, please wait 5-10 minutes and try again when fewer students are accessing the site simultaneously.
-                </p>
+            <!-- Event Details -->
+            <div class="bg-gray-50 p-5 rounded-xl mb-6 border border-gray-200 shadow-inner">
+                <h3 class="font-bold text-lg text-gray-800 mb-3 border-b pb-1">Event Information</h3>
+                <ul class="space-y-2 text-sm">
+                    <li class="grid grid-cols-4 gap-2"><span class="font-bold text-gray-700 col-span-1">Organizers:</span> <span class="col-span-3 text-gray-600">Nguyen Khuyen English Dept. & HCMC Art Center</span></li>
+                    <li class="grid grid-cols-4 gap-2"><span class="font-bold text-gray-700 col-span-1">Location:</span> <span class="col-span-3 text-gray-600">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</span></li>
+                    <li class="grid grid-cols-4 gap-2"><span class="font-bold text-gray-700 col-span-1">Time:</span> <span class="col-span-3 text-gray-800 font-bold">October 18, 2025</span></li>
+                    <li class="grid grid-cols-4 gap-2"><span class="font-bold text-gray-700 col-span-1">Ticket Price:</span> <span class="col-span-3 text-red-500 font-extrabold">80,000 VND/ticket</span></li>
+                </ul>
             </div>
 
-            <!-- Registration Form Screen -->
-            <div id="registration-screen" class="hidden">
-                <div class="text-center text-white p-4 -mx-6 -mt-10 md:-mx-10 rounded-t-xl" style="background-color: #3b82f6;">
-                    <h1 class="styled-title text-4xl sm:text-5xl font-extrabold mb-1">
-                        Water Puppet Show:
-                    </h1>
-                    <h1 class="styled-title text-4xl sm:text-5xl font-extrabold">
-                        The Legend of Yết Kiêu
-                    </h1>
-                </div>
-
-                <p class="text-center text-gray-700 mt-4 italic">
-                    The story of one of the five brilliant generals of King Trần Hưng Đạo.
-                </p>
-
-                <!-- Event Details -->
-                <div class="mt-6 border-t pt-4">
-                    <h2 class="text-2xl font-bold text-red-600 mb-3">Event Information</h2>
-                    <dl class="text-gray-700 space-y-2">
-                        <div class="flex flex-col sm:flex-row">
-                            <dt class="font-semibold w-full sm:w-1/3">Organizer:</dt>
-                            <dd class="w-full sm:w-2/3">Nguyen Khuyen High School English Dept. in collaboration with HCMC Art Center</dd>
-                        </div>
-                        <div class="flex flex-col sm:flex-row">
-                            <dt class="font-semibold w-full sm:w-1/3">Location:</dt>
-                            <dd class="w-full sm:w-2/3">Water Puppet Stage – No. 2 Nguyen Binh Khiem, HCMC (Inside the History Museum)</dd>
-                        </div>
-                        <div class="flex flex-col sm:flex-row">
-                            <dt class="font-semibold w-full sm:w-1/3">Time:</dt>
-                            <dd class="w-full sm:w-2/3 text-lg font-bold text-blue-700">October 18, 2025</dd>
-                        </div>
-                        <div class="flex flex-col sm:flex-row">
-                            <dt class="font-semibold w-full sm:w-1/3">Ticket Price:</dt>
-                            <dd class="w-full sm:w-2/3 font-bold text-red-600">80,000 VND/ticket</dd>
-                        </div>
-                    </dl>
-
-                    <div class="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-                        <h3 class="font-bold text-yellow-800">Important Notes:</h3>
-                        <ul class="list-disc list-inside text-sm text-gray-700 space-y-1 mt-1">
-                            <li>This special water puppet show is <b>exclusive</b> for <b>10th-grade students</b> of Nguyen Khuyen High School.</li>
-                            <li>The registration link will close at <b>11:00 PM on October 7, 2025</b>, or when <b>130 seats/session</b> are full.</li>
-                            <li>Each student can register for <b>1 ticket only</b>.</li>
-                            <li>Payment (80,000 VND) will be collected after the final list is announced.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Registration Form -->
-                <form id="registration-form" class="mt-8 space-y-6">
-                    <h2 class="text-2xl font-bold text-blue-600">Registration Information</h2>
-                    
-                    <div>
-                        <label for="fullName" class="block text-sm font-medium text-gray-700">Full Name</label>
-                        <input type="text" id="fullName" name="fullName" required 
-                               placeholder="e.g., Nguyen Van A"
-                               class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <p id="name-error" class="text-red-500 text-xs mt-1 hidden">Invalid name format. Please enter a meaningful name.</p>
-                    </div>
-
-                    <div>
-                        <label for="class" class="block text-sm font-medium text-gray-700">Class</label>
-                        <input type="text" id="class" name="class" required 
-                               placeholder="e.g., 10A1 or 10B2 (Must start with '10')"
-                               class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase">
-                        <p id="class-error" class="text-red-500 text-xs mt-1 hidden">Class must start with '10' (e.g., 10A1).</p>
-                    </div>
-
-                    <!-- Session Selection -->
-                    <div>
-                        <h3 class="text-sm font-medium text-gray-700 mb-2">Select a Session (1 ticket per student)</h3>
-                        <div class="space-y-3">
-                            <!-- Session 1 -->
-                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
-                                <input type="radio" name="session" value="Session 1: 8:00 AM - 9:00 AM" class="form-radio h-4 w-4 text-blue-600" required>
-                                <span class="ml-3 text-gray-900 font-medium">Session 1: 8:00 AM - 9:00 AM</span>
-                                <div class="ml-auto text-sm text-right">
-                                    <p class="font-bold text-green-600" id="count-1">Loading...</p>
-                                </div>
-                            </label>
-                            <!-- Session 2 -->
-                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
-                                <input type="radio" name="session" value="Session 2: 1:00 PM - 2:00 PM" class="form-radio h-4 w-4 text-blue-600" required>
-                                <span class="ml-3 text-gray-900 font-medium">Session 2: 1:00 PM - 2:00 PM</span>
-                                <div class="ml-auto text-sm text-right">
-                                    <p class="font-bold text-green-600" id="count-2">Loading...</p>
-                                </div>
-                            </label>
-                            <!-- Session 3 -->
-                            <label class="flex items-center p-3 border rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors">
-                                <input type="radio" name="session" value="Session 3: 4:00 PM - 5:00 PM" class="form-radio h-4 w-4 text-blue-600" required>
-                                <span class="ml-3 text-gray-900 font-medium">Session 3: 4:00 PM - 5:00 PM</span>
-                                <div class="ml-auto text-sm text-right">
-                                    <p class="font-bold text-green-600" id="count-3">Loading...</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div id="duplicate-error" class="text-center bg-red-100 border border-red-400 text-red-700 p-3 rounded hidden">
-                        <b>Error:</b> Registration failed. A ticket has already been registered for this Name and Class combination. Each student can only register once.
-                    </div>
-                    
-                    <div id="general-error" class="text-center bg-red-100 border border-red-400 text-red-700 p-3 rounded hidden">
-                        <b>Error:</b> An unexpected error occurred. Check the console or try again later.
-                    </div>
-
-                    <button type="submit" id="submit-button"
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out disabled:opacity-50"
-                            disabled>
-                        Register Ticket
-                    </button>
-                </form>
+            <!-- Important Notice -->
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg mb-6 text-sm">
+                <ul class="list-disc list-inside space-y-1 text-yellow-800">
+                    <li><span class="font-bold">Note:</span> This special show is exclusive to <span class="font-bold">Grade 10</span> students of Nguyen Khuyen High School.</li>
+                    <li>The link will close at <span class="font-bold">23:00 on Oct 07, 2025</span> or when <span class="font-bold">130 seats/session</span> are fully booked.</li>
+                    <li>Each student may register for <span class="font-bold">1 ticket only.</span></li>
+                </ul>
             </div>
 
-            <!-- Success Screen -->
-            <div id="success-screen" class="hidden text-center py-10">
-                <img src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
-                     alt="Joyful congratulations image" 
-                     class="mx-auto w-32 h-32 md:w-48 md:h-48 rounded-full shadow-lg object-cover mb-6 border-4 border-green-500">
+            <!-- Session Availability Status -->
+            <div id="status-section" class="mb-6">
+                <h3 class="font-bold text-xl text-gray-700 mb-3 border-b pb-1">Session Availability Status</h3>
+                <div id="session-stats" class="space-y-3 text-base">
+                    <p class="text-gray-500 text-center">Loading status...</p>
+                </div>
+                <!-- Vị trí mới cho trạng thái mở form -->
+                <p id="form-open-status" class="mt-4 text-lg font-extrabold text-center text-gray-700"></p>
+                <!-- Đồng hồ đếm ngược (đã làm nhỏ) -->
+                <p id="countdown-timer" class="countdown-timer text-center hidden"></p>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="registration-form" class="space-y-5">
+                <h3 class="font-bold text-xl text-gray-700 mb-3 border-b pb-1">Registration Information</h3>
                 
-                <h2 class="text-3xl md:text-4xl font-extrabold text-green-700 mb-4">
-                    🎉 Registration Successful! 🎉
-                </h2>
-
-                <div class="bg-green-50 p-6 rounded-lg border border-green-300 mx-auto max-w-md">
-                    <p class="text-lg text-gray-800 mb-4">
-                        Dear <span id="success-name" class="font-bold text-blue-600"></span>,
-                    </p>
-                    <p class="text-lg text-gray-800 mb-4">
-                        You have successfully registered for the Water Puppet Show.
-                    </p>
-                    
-                    <div class="text-left space-y-2 mb-6">
-                        <p class="font-semibold">Class: <span id="success-class" class="text-red-500"></span></p>
-                        <p class="font-semibold">Selected Session: <span id="success-session" class="text-red-500"></span></p>
-                    </div>
-
-                    <p class="text-red-600 font-bold text-xl mb-4">
-                        Please prepare 80,000 VND for payment.
-                    </p>
-                    <p class="text-sm text-gray-600">
-                        A final official list and payment collection details will be announced later.
-                    </p>
+                <!-- Full Name -->
+                <div>
+                    <label for="full-name" class="block text-sm font-bold text-gray-700">Full Name:</label>
+                    <input type="text" id="full-name" name="fullName" required placeholder="Nguyen Van A" 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out capitalize-name">
+                    <p class="text-xs text-gray-500 mt-1">First letter of each word will be automatically capitalized on submission.</p>
                 </div>
 
-                <p class="mt-6 text-sm text-gray-500">Thank you for your interest!</p>
-            </div>
+                <!-- Class -->
+                <div>
+                    <label for="class" class="block text-sm font-bold text-gray-700">Class:</label>
+                    <input type="text" id="class" name="class" required placeholder="10A1" 
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out">
+                    <p class="text-xs text-gray-500 mt-1 text-red-500 font-semibold">Only Grade 10 students are allowed to register (must start with "10").</p>
+                </div>
 
+                <!-- Session Selection -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Select Show Session (1 ticket only):</label>
+                    <div id="session-options" class="space-y-3">
+                        <!-- Options loaded by JS -->
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <button id="submit-button" type="submit" disabled
+                        class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-bold text-white bg-gray-400 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-emerald-300 transition duration-300 ease-in-out">
+                    REGISTER TICKET
+                </button>
+                <div id="loading-spinner" class="text-center hidden">
+                    <svg class="animate-spin h-6 w-6 text-emerald-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-sm text-gray-500 mt-2">Processing registration...</p>
+                </div>
+            </form>
+        </div>
+        <!-- --- END CONTENT SECTION --- -->
+
+
+        <!-- Success Screen (Initially hidden) -->
+        <div id="success-screen" class="hidden text-center p-8 bg-green-50 border-2 border-green-300 rounded-lg shadow-xl">
+            <!-- Success Image -->
+            <img id="success-image" src="https://newsmd2fr.keeng.vn/tiin/archive/imageslead/2024/12/24/6ljali0161btgdnu4mq8w9wkyiacshg7.jpg" 
+                onerror="this.onerror=null;this.src='https://placehold.co/150x150/d1fae5/065f46?text=Success';"
+                class="h-32 w-32 object-cover rounded-full mx-auto mb-4 border-4 border-white shadow-md" alt="Success">
+
+            <h3 class="text-3xl font-bold text-green-700 mb-3">REGISTRATION SUCCESSFUL!</h3>
+            <!-- Updated to include Class -->
+            <p class="text-gray-700 text-lg mb-2">Congratulations, <span id="success-name" class="font-extrabold text-emerald-600"></span> (<span id="success-class" class="font-extrabold text-blue-600"></span>)!</p>
+            <p class="text-gray-700 text-lg mb-4">You have successfully reserved one ticket for the <span id="success-session" class="font-extrabold text-emerald-600"></span> session.</p>
+            
+            <div class="bg-yellow-100 p-3 rounded-lg border border-yellow-300 mt-4">
+                <p class="text-sm text-yellow-900 font-medium">
+                    Please wait for the official final list announcement.
+                    Prepare <span class="font-bold text-red-600">80,000 VND</span> for ticket payment.
+                </p>
+            </div>
+            
+            <!-- Student cannot return to registration page -->
         </div>
     </div>
 
-    <script type="module">
-        // Refactor: Get all dependencies, including mocked ones if USE_FIREBASE is false
-        // We will define them globally in the first script block, so we use window.db etc.
-        const db = window.db; 
-        const { retryWithBackoff, collection, query, where, getDocs, addDoc, onSnapshot } = window; 
+    <!-- JavaScript Logic -->
+    <script>
+        // --- CONFIGURATION ---
+        // Vui lòng đảm bảo URL Google Apps Script này là URL ĐÃ TRIỂN KHAI VÀ KHÔNG BỊ LỖI PHÂN QUYỀN (Deploy as Web App, Execute as me, Access: Anyone)
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbygtcsZgqjBYnhrTTsGuNWQ5iCu0AUFkZ0qBt4PSoCGW9wEixfWLJPLmDQFlUU6ZRMu/exec';
+        const MAX_CAPACITY_PER_SESSION = 130;
+        const MAX_RETRIES = 3;
         
-        // ** ĐƯỜNG DẪN WEB APP APPS SCRIPT ĐÃ TRIỂN KHAI CỦA BẠN **
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMgRd7aZSteqXhd0FT57ABEIcdBqlNNcv68FFEB6Ii_6FF6IQMTI9ScOJ2FGk8yyeN/exec';
-
-        const MAX_CAPACITY = 130;
-        const OPENING_TIME = new Date("2025-10-05T10:40:00+07:00"); // 10:40 AM, Oct 5, 2025 HCMC time
-        const CLOSING_TIME = new Date("2025-10-07T23:00:00+07:00"); // 11:00 PM, Oct 7, 2025 HCMC time
-        const SESSION_MAP = {
-            'Session 1: 8:00 AM - 9:00 AM': 'Session 1',
-            'Session 2: 1:00 PM - 2:00 PM': 'Session 2',
-            'Session 3: 4:00 PM - 5:00 PM': 'Session 3',
-        };
-        const sessionCounts = {
-            'Session 1': 0,
-            'Session 2': 0,
-            'Session 3': 0,
-        };
-
-        let isFormOpen = false;
-        let isRegistrationActive = false;
+        // --- CẤU HÌNH QUAN TRỌNG: CHUYỂN THÀNH FALSE KHI SỬ DỤNG CHÍNH THỨC! ---
+        // IS_MOCKING_STATUS = true: Dùng thời gian giả lập (MOCK_START_TIME/MOCK_CLOSE_TIME) để kiểm tra trạng thái mở/đóng.
+        // IS_MOCKING_STATUS = false: Dùng thời gian Mở/Đóng (startTime/closeTime) trả về từ Google Apps Script thật.
+        const IS_MOCKING_STATUS = true; // <-- CHUYỂN THÀNH FALSE TRƯỚC KHI ĐƯA LÊN CHÍNH THỨC
+        // --- MOCK CONFIGURATION (CHỈ DÙNG KHI IS_MOCKING_STATUS = TRUE) ---
+        const now = new Date();
+        const MOCK_START_TIME = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 30, 0).getTime();
+        const MOCK_CLOSE_TIME = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 45, 0).getTime();
+        // ------------------------------------------------------------------
         
-        const registrationScreen = document.getElementById('registration-screen');
-        const initialCheckScreen = document.getElementById('initial-check-screen');
-        const loadingMessage = document.getElementById('loading-message');
-        const overloadTip = document.getElementById('overload-tip');
+        // --- DOM Elements ---
+        const form = document.getElementById('registration-form');
         const submitButton = document.getElementById('submit-button');
-        const registrationForm = document.getElementById('registration-form');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const sessionOptionsDiv = document.getElementById('session-options');
+        const sessionStatsDiv = document.getElementById('session-stats');
+        const formOpenStatusEl = document.getElementById('form-open-status');
+        const countdownTimerEl = document.getElementById('countdown-timer');
         const successScreen = document.getElementById('success-screen');
-        const classInput = document.getElementById('class');
-        const fullNameInput = document.getElementById('fullName');
-        const nameError = document.getElementById('name-error');
-        const classError = document.getElementById('class-error');
-        const duplicateError = document.getElementById('duplicate-error');
-        const generalError = document.getElementById('general-error');
-        const userIdDisplay = document.getElementById('user-id-display');
+        const messageBox = document.getElementById('message-box');
+        const registrationContent = document.getElementById('registration-content');
         
-        const IS_LOCAL_MODE = !db; // Cờ để kiểm tra chế độ chạy
+        // Input fields (needed to read class value)
+        const classInput = document.getElementById('class');
+
+        let countdownInterval = null; // Biến để lưu trữ interval của đồng hồ đếm ngược
 
         // --- Utility Functions ---
 
-        // Function to format the name (Capitalize first letter of each word)
-        const formatName = (str) => {
-            return str.toLowerCase().split(' ').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' ').trim();
-        };
+        /**
+         * Utility function to display custom messages (replaces alert()).
+         */
+        function displayMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.className = `message-box show ${type}`;
 
-        // Function to check for meaningless concatenated characters
-        const isValidName = (name) => {
-            // Check for general length and non-empty words
-            if (name.trim().length < 3) return false;
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 5000); 
+        }
 
-            // Regex to check for non-stop repeating characters (e.g., 'aaaaa', '11111') or keyboard-walks (e.g., 'asdfghjkl')
-            const repeatedChars = /(.)\1{3,}/i; // 4 or more of the same char
-            const keyboardWalk = /(asdf|qwerty|zxcv|dfgh|hjkl|jkl;)/i; // common bad patterns
-
-            if (repeatedChars.test(name) || keyboardWalk.test(name.toLowerCase())) {
-                return false;
-            }
-
-            // Simple check: Must contain at least one space (for Full Name)
-            if (!name.includes(' ')) {
-                return false;
-            }
-
-            return true;
-        };
-
-        // Function to check form state and toggle submit button
-        const checkFormState = () => {
-            const isNameValid = isValidName(fullNameInput.value);
-            const isClassValid = classInput.value.trim().toUpperCase().startsWith('10');
-            const isSessionSelected = registrationForm.querySelector('input[name="session"]:checked');
-
-            nameError.classList.toggle('hidden', isNameValid || fullNameInput.value.length === 0);
-            classError.classList.toggle('hidden', isClassValid || classInput.value.length === 0);
-
-            let isDisabled = !(isFormOpen && isNameValid && isClassValid && isSessionSelected);
-            
-            // Check for capacity limit (ONLY in real mode)
-            if (!IS_LOCAL_MODE && isSessionSelected) {
-                const sessionKey = SESSION_MAP[isSessionSelected.value];
-                if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
-                    submitButton.textContent = `Session ${sessionKey.slice(-1)} is FULL`;
-                    isDisabled = true;
-                } else {
-                    submitButton.textContent = 'Register Ticket';
+        /**
+         * Utility function to attempt fetching with exponential backoff and retry logic.
+         */
+        async function attemptFetch(url, options, retries = 0) {
+            try {
+                const response = await fetch(url, options);
+                
+                if (response.ok || response.status < 500) {
+                    return response;
                 }
-            } else if (IS_LOCAL_MODE) {
-                submitButton.textContent = 'Register Ticket (Local Mode)';
+
+                throw new Error(`Server responded with status: ${response.status}`);
+
+            } catch (error) {
+                console.error('Fetch attempt failed:', error.message);
+                if (retries < MAX_RETRIES) {
+                    const delay = Math.pow(2, retries) * 1000 + (Math.random() * 500);
+                    // console.log(`Retrying in ${Math.round(delay / 1000)}s... (Attempt ${retries + 1}/${MAX_RETRIES})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return attemptFetch(url, options, retries + 1);
+                }
+                throw new Error('Connection failed after multiple retries. Please check your network or try again later.');
             }
-
-            submitButton.disabled = isDisabled;
-        };
-
-        fullNameInput.addEventListener('input', checkFormState);
-        classInput.addEventListener('input', checkFormState);
-        document.querySelectorAll('input[name="session"]').forEach(radio => radio.addEventListener('change', checkFormState));
-
-
-        // --- Time Check and UI Toggling ---
-
-        const checkTimeAndToggleUI = () => {
-            const now = new Date();
-            const timeDiffOpen = OPENING_TIME.getTime() - now.getTime();
-            const timeDiffClose = CLOSING_TIME.getTime() - now.getTime();
-            
-            let messagePrefix = IS_LOCAL_MODE ? 'Local Mode: ' : '';
-
-            if (timeDiffOpen > 0) {
-                // Form is not yet open
-                isFormOpen = false;
-                loadingMessage.innerHTML = messagePrefix + `Đăng ký mở vào lúc <b>${OPENING_TIME.toLocaleString('en-US')}</b>. Vui lòng chờ.`;
-                submitButton.textContent = 'Registration Not Yet Open';
-                submitButton.disabled = true;
-
-                // Set a timer to re-check when it should open
-                setTimeout(checkTimeAndToggleUI, timeDiffOpen + 100);
-            } else if (timeDiffClose < 0) {
-                // Form is closed
-                isFormOpen = false;
-                loadingMessage.innerHTML = messagePrefix + `Đăng ký đã **ĐÓNG** từ ${CLOSING_TIME.toLocaleString('en-US')}.`;
-                submitButton.textContent = 'Registration Closed';
-                submitButton.disabled = true;
-            } else {
-                // Form is open and active
-                isFormOpen = true;
-                initialCheckScreen.classList.add('hidden');
-                registrationScreen.classList.remove('hidden');
-                submitButton.disabled = false;
-                isRegistrationActive = true;
-                checkFormState();
-            }
-        };
-
-
-        // --- Firebase Setup and Handlers ---
-
-        window.setupListeners = (userId) => {
-            userIdDisplay.textContent = userId;
-            
-            // 1. Start the time check loop after auth is ready
-            checkTimeAndToggleUI();
-
-            // 2. Set up real-time listener for ticket counts OR mock it
-            if (IS_LOCAL_MODE) {
-                // --- MOCK FIREBASE LOGIC for Local/GitHub RUN ---
-                console.warn("MOCK MODE ACTIVE: Simulating unlimited capacity.");
-                
-                // Cập nhật giao diện để hiển thị chế độ ngoại tuyến
-                document.getElementById('count-1').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
-                document.getElementById('count-2').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
-                document.getElementById('count-3').innerHTML = `<span class="text-green-600 font-extrabold">LOCAL MODE (Unlimited)</span>`;
-                
-                // Đảm bảo không có radio nào bị disable
-                document.querySelectorAll('input[name="session"]').forEach(radio => radio.disabled = false);
-
-                checkFormState();
-                return; 
-            }
-
-            // --- REAL FIREBASE LOGIC (Only runs if config is valid) ---
-            if (!db) return;
-
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
-            const registrationsCollection = collection(db, collectionPath);
-            
-            onSnapshot(registrationsCollection, (snapshot) => {
-                const currentCounts = { 'Session 1': 0, 'Session 2': 0, 'Session 3': 0 };
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.sessionKey) {
-                        currentCounts[data.sessionKey]++;
-                    }
-                });
-
-                Object.assign(sessionCounts, currentCounts);
-                
-                // Update UI counters and check form state
-                ['1', '2', '3'].forEach(i => {
-                    const sessionKey = `Session ${i}`;
-                    const count = sessionCounts[sessionKey];
-                    const remaining = MAX_CAPACITY - count;
-                    const countEl = document.getElementById(`count-${i}`);
-                    
-                    if (remaining <= 0) {
-                        countEl.innerHTML = `<span class="text-red-600 font-extrabold">FULL (${count}/${MAX_CAPACITY})</span>`;
-                        // Visually disable the radio button if full
-                        document.querySelector(`input[value="${Object.keys(SESSION_MAP).find(k => SESSION_MAP[k] === sessionKey)}"]`).disabled = true;
-                    } else {
-                        countEl.innerHTML = `Remaining: <span class="font-extrabold">${remaining}</span> / ${MAX_CAPACITY}`;
-                         document.querySelector(`input[value="${Object.keys(SESSION_MAP).find(k => SESSION_MAP[k] === sessionKey)}"]`).disabled = false;
-                        if (remaining <= 10) {
-                            countEl.classList.add('text-orange-500');
-                            countEl.classList.remove('text-green-600');
-                        } else {
-                            countEl.classList.add('text-green-600');
-                            countEl.classList.remove('text-orange-500');
-                        }
-                    }
-                });
-                checkFormState(); // Re-check button state after capacity update
-            }, (error) => {
-                console.error("Error setting up snapshot listener:", error);
-                loadingMessage.textContent = 'Error loading ticket data. Try reloading.';
-            });
-        };
+        }
         
-        // Gửi dữ liệu đăng ký đến Apps Script Web App để ghi vào Google Sheet
-        const logToGoogleSheet = async (data) => {
-            if (APPS_SCRIPT_URL === 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE') {
-                console.warn("Apps Script URL is not configured. Skipping logging to Google Sheet.");
+        /**
+         * Formats timestamp into a readable localized time string.
+         */
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('en-US', { 
+                month: 'short', day: '2-digit', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit', hour12: true
+            });
+        }
+
+        /**
+         * Translates session names to display times.
+         */
+        function getSessionTime(session) {
+            if (session === 'Session 1') return '8:00 AM - 9:00 AM';
+            if (session === 'Session 2') return '1:00 PM - 2:00 PM';
+            if (session === 'Session 3') return '4:00 PM - 5:00 PM';
+            return '';
+        }
+
+        /**
+         * Cập nhật đồng hồ đếm ngược
+         * @param {number} targetTime - Thời gian mục tiêu (milliseconds)
+         */
+        function updateCountdown(targetTime) {
+            const now = new Date().getTime();
+            const distance = targetTime - now;
+
+            if (distance < 0) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+                countdownTimerEl.classList.add('hidden');
+                // Tải lại trạng thái form ngay khi đếm ngược kết thúc
+                fetchStats(); 
                 return;
             }
 
-            try {
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // Cần thiết để Apps Script Web App chấp nhận request
-                    cache: 'no-cache',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                // Lưu ý: Do sử dụng 'no-cors', chúng ta không thể đọc body JSON trả về.
-                if (!response.ok && response.type !== 'opaque') {
-                     console.warn(`Warning: Could not confirm Google Sheet log status. HTTP Status: ${response.status}`);
-                }
-                
-                console.log("Data sent to Google Sheet endpoint.");
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            
+            // Định dạng dd:hh:mm
+            const countdownText = `Form opens in: ${String(days).padStart(2, '0')} days : ${String(hours).padStart(2, '0')} hours : ${String(minutes).padStart(2, '0')} minutes`;
+            countdownTimerEl.textContent = countdownText;
+            countdownTimerEl.classList.remove('hidden');
+        }
 
-            } catch (error) {
-                console.error("Error logging data to Google Sheet endpoint (Network/CORS issue expected with 'no-cors' mode):", error);
-                // Dù có lỗi log, chúng ta vẫn coi đăng ký thành công nếu đã lưu vào Firestore
+        /**
+         * Xử lý hiển thị đồng hồ đếm ngược và trạng thái form.
+         * @param {string} formStatus - Trạng thái của form (NOT_OPEN, OPEN, CLOSED)
+         * @param {number} startTime - Thời gian mở form (milliseconds)
+         * @param {number} closeTime - Thời gian đóng form (milliseconds)
+         */
+        function handleFormStatusDisplay(formStatus, startTime, closeTime) {
+            // Xóa đồng hồ đếm ngược cũ nếu có
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            countdownTimerEl.classList.add('hidden');
+            
+            // Xử lý trạng thái mới
+            if (formStatus === 'NOT_OPEN') {
+                // ĐÃ BỎ DÒNG HIỂN THỊ THỜI GIAN MỞ CỤ THỂ
+                formOpenStatusEl.innerHTML = `
+                    <span class="text-red-600 font-extrabold block mb-1">REGISTRATION IS NOT OPEN YET.</span>
+                `;
+                submitButton.disabled = true;
+                
+                // Bắt đầu đếm ngược đến giờ mở
+                updateCountdown(startTime);
+                // Cập nhật đồng hồ mỗi 60 giây (chỉ hiển thị phút), trừ khi còn dưới 1 phút thì cập nhật mỗi giây
+                const intervalDuration = (startTime - new Date().getTime() < 60000) ? 1000 : 60000;
+                countdownInterval = setInterval(() => updateCountdown(startTime), intervalDuration); 
+                
+            } else if (formStatus === 'CLOSED') {
+                formOpenStatusEl.innerHTML = `<span class="text-red-600 font-extrabold block">REGISTRATION CLOSED.</span> <span class="text-sm font-normal block">The deadline was ${formatTime(closeTime)} or all tickets were sold.</span>`;
+                submitButton.disabled = true;
+            } else { // OPEN
+                formOpenStatusEl.innerHTML = `<span class="text-green-600 font-extrabold block">REGISTRATION IS OPEN!</span> <span class="text-sm font-normal block">Closes at ${formatTime(closeTime)}.</span>`;
+                submitButton.disabled = false;
+                submitButton.classList.remove('bg-gray-400');
+                submitButton.classList.add('submit-enabled');
+            }
+
+            // Nếu form đang mở hoặc đóng, đảm bảo nút submit có trạng thái đúng
+            if (formStatus !== 'OPEN') {
+                submitButton.classList.remove('submit-enabled');
+                submitButton.classList.add('bg-gray-400');
             }
         }
 
 
-        // --- Registration Submission Handler ---
+        /**
+         * Fetches and updates registration statistics and form state.
+         */
+        async function fetchStats() {
+            sessionStatsDiv.innerHTML = '<p class="text-gray-500 text-center">Loading status...</p>';
+            formOpenStatusEl.textContent = 'Checking form status...';
+            submitButton.disabled = true;
+            submitButton.classList.remove('submit-enabled');
+            submitButton.classList.add('bg-gray-400');
+            
+            let result;
 
-        registrationForm.addEventListener('submit', async (e) => {
+            if (IS_MOCKING_STATUS) {
+                // --- MOCK LOGIC: Giả lập thời gian mở form là 11:30 AM hôm nay ---
+                const currentTime = new Date().getTime();
+                let formStatus;
+
+                if (currentTime < MOCK_START_TIME) {
+                    formStatus = 'NOT_OPEN';
+                } else if (currentTime >= MOCK_START_TIME && currentTime <= MOCK_CLOSE_TIME) {
+                    formStatus = 'OPEN';
+                } else {
+                    formStatus = 'CLOSED';
+                }
+                
+                // Giả lập dữ liệu thống kê (để kiểm tra trạng thái đầy/chưa đầy)
+                const stats = [
+                    { session: 'Session 1', registered: 120 }, // Gần đầy
+                    { session: 'Session 2', registered: 50 },  // Vẫn còn nhiều
+                    { session: 'Session 3', registered: 130 }  // Đã đầy (FULL)
+                ];
+
+                result = {
+                    status: 'success',
+                    stats: stats,
+                    formStatus: formStatus,
+                    startTime: MOCK_START_TIME,
+                    closeTime: MOCK_CLOSE_TIME
+                };
+                
+                // Giả lập độ trễ mạng
+                await new Promise(resolve => setTimeout(resolve, 500)); 
+                // --- END MOCK LOGIC ---
+
+            } else {
+                // --- REAL LOGIC: Lấy dữ liệu thực từ Google Apps Script ---
+                try {
+                    const url = `${GAS_URL}?action=getStats`;
+                    const response = await attemptFetch(url, { method: 'GET' });
+                    result = await response.json();
+                } catch (error) {
+                    console.error(error);
+                    displayMessage(error.message, 'error');
+                    formOpenStatusEl.textContent = 'Network or server connection error.';
+                    return; // Thoát nếu lỗi
+                }
+                // --- END REAL LOGIC ---
+            }
+
+            // Bắt đầu xử lý dữ liệu (Áp dụng chung cho cả MOCK và REAL)
+            if (result.status === 'success') {
+                const { stats, formStatus, startTime, closeTime } = result;
+                
+                // 1. Xử lý trạng thái mở form và đồng hồ đếm ngược
+                handleFormStatusDisplay(formStatus, startTime, closeTime);
+                
+                // 2. Cập nhật thống kê phiên và Tùy chọn Radio
+                sessionStatsDiv.innerHTML = '';
+                sessionOptionsDiv.innerHTML = '';
+
+                stats.forEach(sessionStat => {
+                    const remaining = MAX_CAPACITY_PER_SESSION - sessionStat.registered;
+                    const isFull = remaining <= 0;
+                    const sessionTime = getSessionTime(sessionStat.session);
+                    
+                    // Hiển thị Thống kê
+                    sessionStatsDiv.innerHTML += `
+                        <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-200 shadow-sm">
+                            <span class="font-semibold text-gray-800">${sessionStat.session} (${sessionTime})</span>
+                            <div class="text-right">
+                                <span class="text-lg font-extrabold ${isFull ? 'text-red-600' : 'text-emerald-600'}">
+                                    ${Math.max(0, remaining)} / ${MAX_CAPACITY_PER_SESSION}
+                                </span>
+                                <p class="text-xs text-gray-500">Registered: ${sessionStat.registered}</p>
+                            </div>
+                        </div>
+                    `;
+
+                    // Tạo Tùy chọn Radio
+                    // Chỉ cho phép đăng ký nếu form đang MỞ VÀ phiên chưa đầy
+                    const isDisabled = isFull || formStatus !== 'OPEN';
+                    const statusText = isFull ? '— FULLY BOOKED' : '';
+                    
+                    sessionOptionsDiv.innerHTML += `
+                        <label class="radio-label block p-3 border border-gray-300 ${isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}">
+                            <input type="radio" name="session" value="${sessionStat.session}" 
+                                   class="text-emerald-600 focus:ring-emerald-500" ${isDisabled ? 'disabled' : ''}>
+                            <span class="ml-3 font-semibold">${sessionStat.session} (${sessionTime}) <span class="text-red-500 text-xs font-bold">${statusText}</span></span>
+                        </label>
+                    `;
+                });
+
+            } else {
+                displayMessage(`Server Error: ${result.message}`, 'error');
+                formOpenStatusEl.textContent = 'Error loading form status.';
+            }
+
+        }
+        
+        /**
+         * Handles form submission for ticket registration.
+         */
+        async function handleSubmit(e) {
             e.preventDefault();
             
-            duplicateError.classList.add('hidden');
-            generalError.classList.add('hidden');
-            
-            if (!isRegistrationActive) return;
-
-            submitButton.disabled = true;
-            submitButton.textContent = 'Registering... Please Wait';
-            overloadTip.classList.add('hidden');
-
-            const rawName = fullNameInput.value.trim();
-            const rawClass = classInput.value.trim();
-            const selectedSessionText = registrationForm.querySelector('input[name="session"]:checked')?.value;
-            
-            if (!isValidName(rawName) || !rawClass.toUpperCase().startsWith('10') || !selectedSessionText) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Register Ticket';
+            // Client-side validation: Class must start with '10'
+            const className = classInput.value.trim();
+            if (!className.toUpperCase().startsWith('10')) {
+                displayMessage("Error: This event is exclusive to Grade 10 students. Your Class must start with '10'.", 'error');
                 return;
             }
-            
-            // Auto-formatting for saving
-            const formattedName = formatName(rawName);
-            const formattedClass = rawClass.toUpperCase();
-            const sessionKey = SESSION_MAP[selectedSessionText];
 
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const collectionPath = `artifacts/${appId}/public/data/water_puppet_registrations`;
+            // Client-side validation: Basic name check
+            const fullName = document.getElementById('full-name').value.trim();
+            if (/(.)\1{3,}/.test(fullName) || fullName.length < 5) {
+                 displayMessage("Error: Please enter a valid full name.", 'error');
+                 return;
+            }
+
+
+            const formData = new FormData(form);
+            formData.append('action', 'register');
+            
+            if (!formData.get('session')) {
+                displayMessage("Error: Please select a show session.", 'error');
+                return;
+            }
+
+            // Disable UI
+            submitButton.disabled = true;
+            submitButton.classList.remove('submit-enabled');
+            submitButton.classList.add('bg-gray-400');
+            loadingSpinner.classList.remove('hidden');
             
             try {
-                if (!IS_LOCAL_MODE) {
-                    // --- REAL FIREBASE LOGIC ---
-                    // 1. CHECK FOR DUPLICATE (Name + Class)
-                    const checkDuplicateOperation = async () => {
-                        const q = query(
-                            collection(db, collectionPath),
-                            where("formattedName", "==", formattedName),
-                            where("formattedClass", "==", formattedClass)
-                        );
-                        const querySnapshot = await getDocs(q);
-                        return querySnapshot.empty; // Returns true if no duplicate found
-                    };
-
-                    const isUnique = await retryWithBackoff(checkDuplicateOperation);
-
-                    if (!isUnique) {
-                        duplicateError.classList.remove('hidden');
-                        return;
-                    }
-                    
-                    // 2. CHECK CAPACITY AGAIN 
-                    if (sessionCounts[sessionKey] >= MAX_CAPACITY) {
-                        generalError.textContent = 'Error: The selected session just became full. Please choose another one.';
-                        generalError.classList.remove('hidden');
-                        return;
-                    }
-                    
-                    // 3. REGISTER to Firestore
-                    const registrationDataFireStore = {
-                        rawName: rawName,
-                        rawClass: rawClass,
-                        formattedName: formattedName, 
-                        formattedClass: formattedClass, 
-                        selectedSessionText: selectedSessionText,
-                        sessionKey: sessionKey, 
-                        timestamp: new Date().toISOString(),
-                        userId: window.currentUserId, 
-                    };
-
-                    const registerOperation = () => addDoc(collection(db, collectionPath), registrationDataFireStore);
-                    await retryWithBackoff(registerOperation);
-
-                    // LOG to Google Sheet (Asynchronously)
-                    logToGoogleSheet(registrationDataFireStore);
-
-                } else {
-                    // --- LOCAL MODE LOGIC ---
-                    console.warn("Local Mode: Skipping Firestore duplicate/capacity checks. Only attempting Google Sheet log.");
-                    
-                    // Dữ liệu cho Google Sheet (không cần kiểm tra trùng lặp)
-                    const registrationDataLocal = {
-                        rawName: rawName,
-                        rawClass: rawClass,
-                        formattedName: formattedName, 
-                        formattedClass: formattedClass, 
-                        selectedSessionText: selectedSessionText,
-                        sessionKey: sessionKey, 
-                        timestamp: new Date().toISOString(),
-                        userId: window.currentUserId, 
-                    };
-                    
-                    // LOG to Google Sheet (Asynchronously)
-                    logToGoogleSheet(registrationDataLocal);
-                }
-
-
-                // 4. SHOW SUCCESS SCREEN
-                document.getElementById('success-name').textContent = formattedName;
-                document.getElementById('success-class').textContent = formattedClass;
-                document.getElementById('success-session').textContent = selectedSessionText;
+                // Lô-gic đăng ký (register) vẫn sử dụng URL thực (GAS_URL)
+                const response = await attemptFetch(GAS_URL, {
+                    method: 'POST',
+                    body: formData 
+                });
                 
-                registrationScreen.classList.add('hidden');
-                successScreen.classList.remove('hidden');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // 1. Show Success Screen
+                    document.getElementById('success-name').textContent = result.fullName;
+                    
+                    // Lấy giá trị Class từ server (nếu có) hoặc từ input form
+                    const finalClassToDisplay = String(result.class || className).toUpperCase();
+                    document.getElementById('success-class').textContent = finalClassToDisplay;
+
+                    document.getElementById('success-session').textContent = getSessionTime(result.session);
+                    
+                    // Hide form elements and show success screen
+                    registrationContent.classList.add('hidden');
+                    successScreen.classList.remove('hidden');
+
+                    // 2. Fetch new stats in the background (important for capacity check)
+                    fetchStats(); 
+                } else {
+                    // Handle server-side errors
+                    const details = result.message || "An unknown error occurred on the server.";
+                    displayMessage(`Registration Failed: ${details}`, 'error');
+                }
 
             } catch (error) {
-                console.error("Registration failed:", error);
-                overloadTip.classList.remove('hidden');
-                
-                let errorMessage = 'An unexpected error occurred.';
-                if (error.message.includes('System Overloaded')) {
-                    errorMessage = error.message + ' Please try again later.';
-                } else if (error.code === 'permission-denied') {
-                    errorMessage = 'Registration denied. Please contact the organizer.';
-                }
-                
-                generalError.innerHTML = `<b>Error:</b> ${errorMessage}`;
-                generalError.classList.remove('hidden');
+                console.error(error);
+                displayMessage(error.message, 'error');
             } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Register Ticket';
-                checkFormState();
+                loadingSpinner.classList.add('hidden');
+                // Re-enable UI if success screen is not active (i.e., if submission failed)
+                if (successScreen.classList.contains('hidden')) {
+                    // Cần chạy lại hàm xử lý trạng thái để nút được enable/disable đúng theo giờ thực tế
+                    fetchStats(); 
+                }
             }
+        }
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStats(); 
+            form.addEventListener('submit', handleSubmit);
         });
 
-        // Initialize Firebase will call window.setupListeners once auth is ready
-        if (typeof window.initFirebase === 'function') {
-            // Note: initFirebase is called in the first script tag
-            // The logic now handles the case where __firebase_config is missing (local mode)
-        } else {
-             // Fallback if the module imports fail (shouldn't happen)
-             loadingMessage.textContent = 'System Initialization Error.';
-        }
+        // Set interval to refresh stats every 30 seconds
+        setInterval(fetchStats, 30000); 
+
     </script>
 </body>
 </html>
