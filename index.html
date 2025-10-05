@@ -434,8 +434,8 @@
 
 
     <script>
-        // !! BƯỚC QUAN TRỌNG: ĐÃ THAY THẾ BẰNG WEB APP URL CỦA BẠN !!
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyldcUpm9MNMUjGN-HptpFj4LevsSuRhUNBVV3ZkNvIRc3eZlU5IGhnfBDNn7ToDMOs/exec'; 
+        // !! BƯỚC QUAN TRỌNG: ĐÃ THAY THẾ BẰNG WEB APP URL MỚI CỦA BẠN !!
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwjFfaVEoJHsfkh_hcK1hK9U4VGEBT4p72PIm1cJHpiENA5o--QFeXJNe38B2-yHhui/exec'; 
 
         // Configuration (MUST match GAS settings)
         const SESSION_NAMES = ["Session 1: 8:00-9:00", "Session 2: 13:00-14:00", "Session 3: 16:00-17:00"];
@@ -644,7 +644,7 @@
             if (status === "OPEN") {
                 statusMessage.textContent = "REGISTRATION IS OPEN NOW";
                 countdownTimer.classList.remove('hidden');
-                countdownTimer.textContent = `Form closes at: ${formatTime(end)}`;
+                countdownTimer.textContent = `Form closes at: ${formatTime(endTimestamp)}`;
                 statusHeaderBox.className = 'p-4 text-center rounded-t-lg bg-green-100 text-green-700';
                 
                 // Kích hoạt nút submit
